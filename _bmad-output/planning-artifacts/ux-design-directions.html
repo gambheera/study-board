@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudyBoard — UX Design Directions</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ─── TOKENS ─────────────────────────────────────────────── */
+  :root {
+    --blue:   #007BFF;
+    --blue-d: #0056b3;
+    --blue-l: #EEF2FF;
+    --yellow: #FFC107;
+    --yellow-l: #FFF8E1;
+    --white:  #F8F9FA;
+    --green:  #4CAF78;
+    --rose:   #C4786A;
+    --grey:   #8896A5;
+    --dark:   #1A1C1E;
+    --dark-s: #22252A;
+    --text:   #1A1A2E;
+    --text-m: #4A4A6A;
+    --text-l: #8896A5;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Nunito', sans-serif;
+    --r: 12px;
+    --shadow: 0 2px 8px rgba(0,0,0,.08);
+    --shadow-m: 0 4px 16px rgba(0,0,0,.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: #F0F2F5;
+    color: var(--text);
+  }
+
+  /* ─── PAGE HEADER ────────────────────────────────────────── */
+  .page-header {
+    background: var(--blue);
+    color: white;
+    padding: 40px 48px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .page-header::after {
+    content: '';
+    position: absolute;
+    right: -60px; top: -60px;
+    width: 280px; height: 280px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.06);
+  }
+  .page-header h1 { font-size: 28px; font-weight: 800; margin-bottom: 6px; }
+  .page-header p  { font-size: 15px; opacity: .85; max-width: 520px; line-height: 1.5; }
+
+  .palette-row {
+    display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap;
+  }
+  .chip {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,.15);
+    border-radius: 20px;
+    padding: 5px 12px 5px 5px;
+    font-size: 12px; font-weight: 600;
+  }
+  .chip-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); }
+
+  /* ─── GRID ───────────────────────────────────────────────── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 32px;
+    padding: 40px 48px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* ─── DIRECTION CARD ─────────────────────────────────────── */
+  .dir-card {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--shadow-m);
+    transition: transform .2s, box-shadow .2s;
+  }
+  .dir-card:hover { transform: translateY(-4px); box-shadow: 0 8px 28px rgba(0,0,0,.15); }
+
+  .dir-label {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid #F0F2F5;
+    display: flex; align-items: flex-start; justify-content: space-between;
+  }
+  .dir-num {
+    font-size: 10px; font-weight: 700; letter-spacing: .08em;
+    color: var(--blue); text-transform: uppercase; margin-bottom: 2px;
+  }
+  .dir-name { font-size: 16px; font-weight: 800; color: var(--text); }
+  .dir-desc { font-size: 12px; color: var(--text-m); margin-top: 2px; line-height: 1.4; }
+  .dir-badge {
+    font-size: 10px; font-weight: 700; padding: 3px 8px;
+    border-radius: 20px; white-space: nowrap;
+  }
+  .badge-bold  { background: var(--blue); color: white; }
+  .badge-calm  { background: var(--blue-l); color: var(--blue-d); }
+  .badge-warm  { background: var(--yellow-l); color: #856404; }
+  .badge-focus { background: #F3E8FF; color: #6B21A8; }
+  .badge-data  { background: #ECFDF5; color: #065F46; }
+  .badge-clean { background: #FFF1F2; color: #9F1239; }
+
+  /* ─── PHONE FRAME ────────────────────────────────────────── */
+  .phone {
+    margin: 0 auto;
+    width: 240px;
+    border-radius: 32px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,.18);
+    position: relative;
+  }
+  .phone-inner { position: relative; overflow: hidden; }
+
+  .phone-bar {
+    height: 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px;
+    font-size: 10px; font-weight: 700;
+  }
+  .phone-bar-icons { display: flex; gap: 4px; align-items: center; }
+  .phone-bar-icon { width: 12px; height: 12px; }
+
+  /* ─── PHONE SHOWCASE WRAPPER ──────────────────────────────── */
+  .phone-wrapper {
+    padding: 20px 20px 24px;
+    display: flex;
+    justify-content: center;
+    background: #F8F9FA;
+  }
+
+  /* ════════════════════════════════════════════════════════════
+     DIRECTION 1 — FOCUS FIRST (Light)
+     Single In-Progress task prominent at top, stack below
+  ════════════════════════════════════════════════════════════ */
+  .d1 .phone-inner { background: var(--white); }
+  .d1 .phone-bar   { background: var(--blue); color: white; }
+
+  .d1-header {
+    background: var(--blue);
+    padding: 10px 14px 14px;
+    color: white;
+  }
+  .d1-header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .d1-greeting { font-size: 11px; opacity: .8; }
+  .d1-name { font-size: 14px; font-weight: 800; }
+  .d1-streak { background: rgba(255,255,255,.2); border-radius: 12px; padding: 3px 8px; font-size: 10px; font-weight: 700; }
+  .d1-progress-row { display: flex; align-items: center; gap: 8px; }
+  .d1-prog-bar { flex: 1; height: 5px; background: rgba(255,255,255,.25); border-radius: 3px; overflow: hidden; }
+  .d1-prog-fill { height: 100%; background: var(--yellow); border-radius: 3px; width: 34%; }
+  .d1-prog-pct { font-size: 10px; font-weight: 700; font-family: var(--mono); }
+
+  .d1-label { font-size: 9px; font-weight: 700; color: var(--text-l); text-transform: uppercase; letter-spacing: .06em; padding: 8px 14px 4px; }
+
+  .d1-focus-card {
+    margin: 0 10px 8px;
+    background: white;
+    border-radius: 10px;
+    border-left: 4px solid var(--yellow);
+    padding: 10px 10px 10px 10px;
+    box-shadow: var(--shadow);
+  }
+  .d1-focus-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .d1-focus-title { font-size: 11px; font-weight: 700; color: var(--text); line-height: 1.3; }
+  .d1-focus-sub { font-size: 9px; color: var(--text-m); margin-top: 1px; }
+  .d1-tag { font-size: 8px; font-weight: 700; padding: 2px 6px; border-radius: 8px; background: var(--yellow-l); color: #856404; }
+  .d1-focus-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .d1-cta { background: var(--blue); color: white; font-size: 9px; font-weight: 700; padding: 4px 10px; border-radius: 6px; }
+  .d1-mini-prog { display: flex; gap: 2px; }
+  .d1-dot { width: 5px; height: 5px; border-radius: 50%; }
+
+  .d1-stack-card {
+    margin: 0 10px 6px;
+    background: white;
+    border-radius: 8px;
+    padding: 7px 10px;
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .d1-stack-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .d1-stack-text { font-size: 10px; font-weight: 600; color: var(--text); flex: 1; }
+  .d1-stack-tag { font-size: 8px; color: var(--text-l); }
+
+  .d1-nav {
+    display: flex; justify-content: space-around;
+    padding: 8px 0 10px;
+    background: white;
+    border-top: 1px solid #F0F2F5;
+    margin-top: 6px;
+  }
+  .d1-nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .d1-nav-icon { width: 16px; height: 16px; border-radius: 4px; }
+  .d1-nav-text { font-size: 8px; font-weight: 600; }
+  .d1-nav-item.active .d1-nav-icon { background: var(--blue); }
+  .d1-nav-item.active .d1-nav-text { color: var(--blue); }
+  .d1-nav-item:not(.active) .d1-nav-icon { background: #E0E0E0; }
+  .d1-nav-item:not(.active) .d1-nav-text { color: var(--text-l); }
+
+  /* ════════════════════════════════════════════════════════════
+     DIRECTION 2 — BOARD CLASSIC (Light)
+     Column headers + vertical scroll, more Kanban-like
+  ════════════════════════════════════════════════════════════ */
+  .d2 .phone-inner { background: var(--white); }
+  .d2 .phone-bar   { background: white; color: var(--text); }
+
+  .d2-header {
+    background: white;
+    padding: 8px 14px 0;
+    border-bottom: 1px solid #F0F2F5;
+  }
+  .d2-header-row { display: flex; justify-content: space-between; align-items: center; }
+  .d2-logo { font-size: 13px; font-weight: 800; color: var(--blue); }
+  .d2-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--blue-l); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: var(--blue); }
+  .d2-tabs { display: flex; gap: 0; margin-top: 8px; }
+  .d2-tab { font-size: 9px; font-weight: 700; padding: 5px 10px; border-bottom: 2px solid transparent; color: var(--text-l); }
+  .d2-tab.active { color: var(--blue); border-color: var(--blue); }
+
+  .d2-body { padding: 8px 10px; }
+  .d2-col-head { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+  .d2-col-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .d2-col-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-m); }
+  .d2-col-count { font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 8px; background: #F0F2F5; color: var(--text-m); }
+
+  .d2-card {
+    background: white;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 5px;
+    box-shadow: var(--shadow);
+    border-left: 3px solid transparent;
+  }
+  .d2-card.ip { border-color: var(--yellow); }
+  .d2-card.todo { border-color: var(--grey); }
+  .d2-card.done { border-color: var(--green); opacity: .7; }
+  .d2-card-title { font-size: 10px; font-weight: 700; color: var(--text); }
+  .d2-card-sub { font-size: 8px; color: var(--text-l); margin-top: 1px; }
+  .d2-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; }
+  .d2-card-tag { font-size: 7px; font-weight: 700; padding: 2px 5px; border-radius: 4px; }
+  .d2-card-acc { font-size: 8px; font-weight: 700; font-family: var(--mono); }
+
+  .d2-nav { display: flex; justify-content: space-around; padding: 8px 0 10px; background: white; border-top: 1px solid #F0F2F5; }
+  .d2-nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .d2-nav-icon { width: 16px; height: 16px; border-radius: 4px; }
+  .d2-nav-text { font-size: 8px; font-weight: 600; }
+  .d2-nav-item.active .d2-nav-icon { background: var(--blue); }
+  .d2-nav-item.active .d2-nav-text { color: var(--blue); }
+  .d2-nav-item:not(.active) .d2-nav-icon { background: #E0E0E0; }
+  .d2-nav-item:not(.active) .d2-nav-text { color: var(--text-l); }
+
+  /* ════════════════════════════════════════════════════════════
+     DIRECTION 3 — DASHBOARD HOME (Light)
+     Coverage ring + stats prominently at top, tasks below
+  ════════════════════════════════════════════════════════════ */
+  .d3 .phone-inner { background: var(--white); }
+  .d3 .phone-bar   { background: var(--blue); color: white; }
+
+  .d3-hero {
+    background: linear-gradient(160deg, var(--blue) 0%, #0056B3 100%);
+    padding: 10px 14px 18px;
+    color: white;
+  }
+  .d3-hero-row { display: flex; align-items: center; justify-content: space-between; }
+  .d3-hero-text h2 { font-size: 13px; font-weight: 800; }
+  .d3-hero-text p { font-size: 9px; opacity: .8; }
+  .d3-ring-wrap { position: relative; width: 56px; height: 56px; }
+  .d3-ring-svg { width: 56px; height: 56px; transform: rotate(-90deg); }
+  .d3-ring-track { fill: none; stroke: rgba(255,255,255,.2); stroke-width: 5; }
+  .d3-ring-fill  { fill: none; stroke: var(--yellow); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 138; stroke-dashoffset: 90; }
+  .d3-ring-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: var(--mono); }
+
+  .d3-stats {
+    display: flex; gap: 6px; margin-top: 10px;
+  }
+  .d3-stat { flex: 1; background: rgba(255,255,255,.15); border-radius: 8px; padding: 5px 6px; }
+  .d3-stat-val { font-size: 12px; font-weight: 800; font-family: var(--mono); }
+  .d3-stat-lbl { font-size: 7px; opacity: .8; margin-top: 1px; }
+
+  .d3-section { padding: 8px 12px 4px; }
+  .d3-section-head { display: flex; justify-content: space-between; align-items: center; }
+  .d3-section-title { font-size: 9px; font-weight: 800; color: var(--text); text-transform: uppercase; letter-spacing: .06em; }
+  .d3-section-link { font-size: 8px; font-weight: 700; color: var(--blue); }
+
+  .d3-task { background: white; border-radius: 8px; padding: 7px 10px; margin-bottom: 5px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 8px; }
+  .d3-task-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .d3-task-body { flex: 1; }
+  .d3-task-title { font-size: 10px; font-weight: 700; color: var(--text); }
+  .d3-task-sub { font-size: 8px; color: var(--text-l); }
+  .d3-task-arrow { font-size: 10px; color: var(--text-l); }
+
+  .d3-nav { display: flex; justify-content: space-around; padding: 8px 0 10px; background: white; border-top: 1px solid #F0F2F5; }
+  .d3-nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .d3-nav-icon { width: 16px; height: 16px; border-radius: 4px; }
+  .d3-nav-text { font-size: 8px; font-weight: 600; }
+  .d3-nav-item.active .d3-nav-icon { background: var(--blue); }
+  .d3-nav-item.active .d3-nav-text { color: var(--blue); }
+  .d3-nav-item:not(.active) .d3-nav-icon { background: #E0E0E0; }
+  .d3-nav-item:not(.active) .d3-nav-text { color: var(--text-l); }
+
+  /* ════════════════════════════════════════════════════════════
+     DIRECTION 4 — DARK MODE FOCUS (Dark)
+     Dark default, single-column, luminous state colors
+  ════════════════════════════════════════════════════════════ */
+  .d4 .phone-inner { background: var(--dark); }
+  .d4 .phone-bar   { background: var(--dark); color: white; }
+
+  .d4-header {
+    padding: 8px 14px 10px;
+    background: var(--dark);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .d4-title { font-size: 15px; font-weight: 800; color: white; }
+  .d4-subtitle { font-size: 9px; color: rgba(255,255,255,.5); margin-top: 1px; }
+  .d4-streak-chip { background: rgba(255,193,7,.15); border: 1px solid rgba(255,193,7,.3); border-radius: 12px; padding: 3px 8px; font-size: 9px; font-weight: 700; color: var(--yellow); }
+
+  .d4-prog-bar-wrap { margin: 0 14px 10px; }
+  .d4-prog-label { display: flex; justify-content: space-between; font-size: 8px; color: rgba(255,255,255,.5); margin-bottom: 4px; }
+  .d4-prog-label span:last-child { font-family: var(--mono); font-weight: 600; color: var(--yellow); }
+  .d4-bar { height: 4px; background: rgba(255,255,255,.1); border-radius: 2px; }
+  .d4-bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--blue), var(--yellow)); width: 34%; }
+
+  .d4-section-label { font-size: 8px; font-weight: 700; color: rgba(255,255,255,.4); text-transform: uppercase; letter-spacing: .06em; padding: 0 14px 4px; }
+
+  .d4-card {
+    margin: 0 10px 6px;
+    background: var(--dark-s);
+    border-radius: 10px;
+    padding: 9px 10px;
+    border-left: 3px solid transparent;
+  }
+  .d4-card.ip   { border-color: var(--yellow); }
+  .d4-card.todo { border-color: rgba(136,150,165,.4); }
+  .d4-card.done { border-color: var(--green); opacity: .6; }
+  .d4-card-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .d4-card-title { font-size: 10px; font-weight: 700; color: white; line-height: 1.3; }
+  .d4-card-sub { font-size: 8px; color: rgba(255,255,255,.4); margin-top: 2px; }
+  .d4-card-tag { font-size: 7px; font-weight: 700; padding: 2px 5px; border-radius: 5px; }
+  .d4-tag-ip   { background: rgba(255,193,7,.2); color: var(--yellow); }
+  .d4-tag-todo { background: rgba(136,150,165,.15); color: rgba(136,150,165,.9); }
+  .d4-tag-done { background: rgba(76,175,120,.15); color: var(--green); }
+
+  .d4-nav { display: flex; justify-content: space-around; padding: 8px 0 10px; background: var(--dark-s); border-top: 1px solid rgba(255,255,255,.06); margin-top: 6px; }
+  .d4-nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .d4-nav-icon { width: 16px; height: 16px; border-radius: 4px; }
+  .d4-nav-text { font-size: 8px; font-weight: 600; }
+  .d4-nav-item.active .d4-nav-icon { background: var(--blue); }
+  .d4-nav-item.active .d4-nav-text { color: var(--yellow); }
+  .d4-nav-item:not(.active) .d4-nav-icon { background: rgba(255,255,255,.1); }
+  .d4-nav-item:not(.active) .d4-nav-text { color: rgba(255,255,255,.4); }
+
+  /* ════════════════════════════════════════════════════════════
+     DIRECTION 5 — ACCORDION BOARD (Light)
+     Sections collapse/expand, In Progress expanded by default
+  ════════════════════════════════════════════════════════════ */
+  .d5 .phone-inner { background: var(--white); }
+  .d5 .phone-bar   { background: white; color: var(--text); }
+
+  .d5-header { background: white; padding: 8px 14px 10px; border-bottom: 1px solid #F0F2F5; }
+  .d5-header-row { display: flex; justify-content: space-between; align-items: center; }
+  .d5-logo { font-size: 14px; font-weight: 800; color: var(--blue); }
+  .d5-pct { font-size: 11px; font-weight: 800; font-family: var(--mono); color: var(--blue); }
+  .d5-pct span { font-size: 8px; font-weight: 600; color: var(--text-l); font-family: var(--sans); }
+
+  .d5-section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  .d5-section-head.active { background: var(--yellow-l); }
+  .d5-sh-left { display: flex; align-items: center; gap: 7px; }
+  .d5-sh-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .d5-sh-label { font-size: 10px; font-weight: 800; color: var(--text); }
+  .d5-sh-count { font-size: 8px; font-weight: 700; padding: 1px 6px; border-radius: 8px; background: #F0F2F5; color: var(--text-m); }
+  .d5-sh-arrow { font-size: 10px; color: var(--text-l); }
+
+  .d5-section-body { padding: 0 10px 6px; }
+  .d5-card { background: white; border-radius: 8px; padding: 8px 10px; margin-bottom: 5px; box-shadow: var(--shadow); border-left: 3px solid var(--yellow); }
+  .d5-card-title { font-size: 10px; font-weight: 700; }
+  .d5-card-sub { font-size: 8px; color: var(--text-l); margin-top: 1px; }
+  .d5-card-footer { display: flex; justify-content: space-between; margin-top: 6px; }
+  .d5-cta { font-size: 8px; font-weight: 700; color: var(--blue); }
+
+  .d5-collapsed { padding: 0 14px 8px; display: flex; gap: 5px; flex-wrap: wrap; }
+  .d5-pill { font-size: 8px; font-weight: 600; padding: 3px 7px; border-radius: 20px; background: white; border: 1px solid #E0E0E0; color: var(--text-m); }
+
+  .d5-nav { display: flex; justify-content: space-around; padding: 8px 0 10px; background: white; border-top: 1px solid #F0F2F5; }
+  .d5-nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .d5-nav-icon { width: 16px; height: 16px; border-radius: 4px; }
+  .d5-nav-text { font-size: 8px; font-weight: 600; }
+  .d5-nav-item.active .d5-nav-icon { background: var(--blue); }
+  .d5-nav-item.active .d5-nav-text { color: var(--blue); }
+  .d5-nav-item:not(.active) .d5-nav-icon { background: #E0E0E0; }
+  .d5-nav-item:not(.active) .d5-nav-text { color: var(--text-l); }
+
+  /* ════════════════════════════════════════════════════════════
+     DIRECTION 6 — TODAY'S PLAN (Dark + Yellow Hero)
+     Yellow hero band showing today's goal + streak, dark below
+  ════════════════════════════════════════════════════════════ */
+  .d6 .phone-inner { background: var(--dark); }
+  .d6 .phone-bar   { background: var(--yellow); color: var(--text); }
+
+  .d6-hero {
+    background: var(--yellow);
+    padding: 8px 14px 14px;
+    color: var(--text);
+  }
+  .d6-hero-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .d6-hero-label { font-size: 9px; font-weight: 700; opacity: .6; text-transform: uppercase; letter-spacing: .05em; }
+  .d6-hero-name { font-size: 14px; font-weight: 800; line-height: 1.2; }
+  .d6-hero-streak { background: rgba(0,0,0,.12); border-radius: 10px; padding: 3px 8px; font-size: 9px; font-weight: 800; }
+  .d6-hero-goal { background: rgba(0,0,0,.1); border-radius: 8px; padding: 7px 10px; font-size: 9px; font-weight: 600; }
+  .d6-hero-goal-label { font-size: 7px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; opacity: .6; margin-bottom: 2px; }
+
+  .d6-body { padding: 8px 10px; }
+  .d6-section-label { font-size: 8px; font-weight: 700; color: rgba(255,255,255,.4); text-transform: uppercase; letter-spacing: .06em; padding: 4px 4px 4px; }
+
+  .d6-card { background: var(--dark-s); border-radius: 10px; padding: 9px 10px; margin-bottom: 6px; display: flex; gap: 8px; align-items: flex-start; }
+  .d6-card-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 2px; }
+  .d6-card-body { flex: 1; }
+  .d6-card-title { font-size: 10px; font-weight: 700; color: white; }
+  .d6-card-sub { font-size: 8px; color: rgba(255,255,255,.4); margin-top: 2px; }
+  .d6-card-cta { font-size: 8px; font-weight: 700; color: var(--yellow); margin-top: 5px; }
+
+  .d6-done-row { display: flex; align-items: center; gap: 6px; padding: 5px 4px; opacity: .5; }
+  .d6-done-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .d6-done-text { font-size: 9px; color: white; text-decoration: line-through; }
+
+  .d6-nav { display: flex; justify-content: space-around; padding: 8px 0 10px; background: var(--dark-s); border-top: 1px solid rgba(255,255,255,.06); }
+  .d6-nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .d6-nav-icon { width: 16px; height: 16px; border-radius: 4px; }
+  .d6-nav-text { font-size: 8px; font-weight: 600; }
+  .d6-nav-item.active .d6-nav-icon { background: var(--yellow); }
+  .d6-nav-item.active .d6-nav-text { color: var(--yellow); }
+  .d6-nav-item:not(.active) .d6-nav-icon { background: rgba(255,255,255,.1); }
+  .d6-nav-item:not(.active) .d6-nav-text { color: rgba(255,255,255,.4); }
+
+  /* ─── EVALUATION PANEL ────────────────────────────────────── */
+  .eval-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    padding: 0 48px 40px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .eval-section { background: white; border-radius: 16px; padding: 20px 24px; box-shadow: var(--shadow); }
+  .eval-section h3 { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .eval-section h3::before { content: ''; display: block; width: 4px; height: 18px; border-radius: 2px; background: var(--blue); }
+
+  .eval-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+  .eval-dir { font-size: 10px; font-weight: 800; color: var(--blue); min-width: 20px; padding-top: 1px; }
+  .eval-text { font-size: 12px; color: var(--text-m); line-height: 1.4; }
+
+  .page-footer {
+    text-align: center;
+    padding: 24px;
+    font-size: 12px;
+    color: var(--text-l);
+  }
+</style>
+</head>
+<body>
+
+<!-- ── PAGE HEADER ─────────────────────────────────────────── -->
+<div class="page-header">
+  <h1>StudyBoard — Design Direction Showcase</h1>
+  <p>Six distinct visual approaches for the board view. All use the Serene Scholar palette and Nunito typeface. Evaluate each for brand alignment, information hierarchy, and emotional feel.</p>
+  <div class="palette-row">
+    <div class="chip"><div class="chip-dot" style="background:#007BFF"></div>Calm Blue #007BFF</div>
+    <div class="chip"><div class="chip-dot" style="background:#FFC107"></div>Golden Yellow #FFC107</div>
+    <div class="chip"><div class="chip-dot" style="background:#F8F9FA;border-color:rgba(255,255,255,.5)"></div>Soft White #F8F9FA</div>
+    <div class="chip"><div class="chip-dot" style="background:#4CAF78"></div>Done Green #4CAF78</div>
+    <div class="chip"><div class="chip-dot" style="background:#C4786A"></div>Re-open Rose #C4786A</div>
+    <div class="chip"><div class="chip-dot" style="background:#1A1C1E"></div>Dark #1A1C1E</div>
+  </div>
+</div>
+
+<!-- ── 6 DIRECTION CARDS ───────────────────────────────────── -->
+<div class="grid">
+
+  <!-- ── DIRECTION 1: FOCUS FIRST ── -->
+  <div class="dir-card">
+    <div class="dir-label">
+      <div>
+        <div class="dir-num">Direction 01</div>
+        <div class="dir-name">Focus First</div>
+        <div class="dir-desc">Active task card is the hero. Progress bar in the header. Stack of waiting tasks below.</div>
+      </div>
+      <div class="dir-badge badge-bold">Light</div>
+    </div>
+    <div class="phone-wrapper">
+      <div class="phone d1">
+        <div class="phone-inner">
+          <div class="phone-bar">
+            <span>9:41</span>
+            <div class="phone-bar-icons">
+              <div class="phone-bar-icon" style="background:white;border-radius:2px;opacity:.8"></div>
+              <div class="phone-bar-icon" style="background:white;border-radius:50%;opacity:.8"></div>
+            </div>
+          </div>
+          <div class="d1-header">
+            <div class="d1-header-top">
+              <div>
+                <div class="d1-greeting">Good evening,</div>
+                <div class="d1-name">Kavya 👋</div>
+              </div>
+              <div class="d1-streak">🔥 7 day streak</div>
+            </div>
+            <div class="d1-progress-row">
+              <div class="d1-prog-bar"><div class="d1-prog-fill"></div></div>
+              <div class="d1-prog-pct">34%</div>
+            </div>
+          </div>
+
+          <div class="d1-label">In Progress</div>
+          <div class="d1-focus-card">
+            <div class="d1-focus-top">
+              <div>
+                <div class="d1-focus-title">Organic Chemistry<br>Alkanes & Alkenes</div>
+                <div class="d1-focus-sub">Theory · 6 sub-lessons</div>
+              </div>
+              <div class="d1-tag">Active</div>
+            </div>
+            <div class="d1-focus-footer">
+              <div class="d1-cta">Take Quiz →</div>
+              <div class="d1-mini-prog">
+                <div class="d1-dot" style="background:var(--green)"></div>
+                <div class="d1-dot" style="background:var(--green)"></div>
+                <div class="d1-dot" style="background:var(--green)"></div>
+                <div class="d1-dot" style="background:var(--yellow)"></div>
+                <div class="d1-dot" style="background:#E0E0E0"></div>
+                <div class="d1-dot" style="background:#E0E0E0"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="d1-label">Up Next</div>
+          <div class="d1-stack-card">
+            <div class="d1-stack-dot" style="background:var(--yellow)"></div>
+            <div class="d1-stack-text">Equilibrium Constants</div>
+            <div class="d1-stack-tag">To-Do</div>
+          </div>
+          <div class="d1-stack-card">
+            <div class="d1-stack-dot" style="background:var(--grey)"></div>
+            <div class="d1-stack-text">Electrochemistry</div>
+            <div class="d1-stack-tag">Backlog</div>
+          </div>
+          <div class="d1-stack-card" style="opacity:.6">
+            <div class="d1-stack-dot" style="background:var(--green)"></div>
+            <div class="d1-stack-text">Atomic Structure</div>
+            <div class="d1-stack-tag" style="color:var(--green)">Done ✓</div>
+          </div>
+
+          <div class="d1-nav">
+            <div class="d1-nav-item active">
+              <div class="d1-nav-icon"></div>
+              <div class="d1-nav-text">Board</div>
+            </div>
+            <div class="d1-nav-item">
+              <div class="d1-nav-icon"></div>
+              <div class="d1-nav-text">Backlog</div>
+            </div>
+            <div class="d1-nav-item">
+              <div class="d1-nav-icon"></div>
+              <div class="d1-nav-text">Progress</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DIRECTION 2: BOARD CLASSIC ── -->
+  <div class="dir-card">
+    <div class="dir-label">
+      <div>
+        <div class="dir-num">Direction 02</div>
+        <div class="dir-name">Board Classic</div>
+        <div class="dir-desc">Tab-based column filter. Cards with left-border state colors. Traditional board feel.</div>
+      </div>
+      <div class="dir-badge badge-calm">Light</div>
+    </div>
+    <div class="phone-wrapper">
+      <div class="phone d2">
+        <div class="phone-inner">
+          <div class="phone-bar" style="background:white;color:var(--text)">
+            <span style="color:var(--text)">9:41</span>
+            <div class="phone-bar-icons">
+              <div class="phone-bar-icon" style="background:var(--grey);border-radius:2px"></div>
+            </div>
+          </div>
+          <div class="d2-header">
+            <div class="d2-header-row">
+              <div class="d2-logo">StudyBoard</div>
+              <div class="d2-avatar">K</div>
+            </div>
+            <div class="d2-tabs">
+              <div class="d2-tab">All</div>
+              <div class="d2-tab active">In Progress</div>
+              <div class="d2-tab">Done</div>
+              <div class="d2-tab">Backlog</div>
+            </div>
+          </div>
+          <div class="d2-body">
+            <div class="d2-col-head">
+              <div class="d2-col-dot" style="background:var(--yellow)"></div>
+              <div class="d2-col-title">In Progress</div>
+              <div class="d2-col-count">2</div>
+            </div>
+            <div class="d2-card ip">
+              <div class="d2-card-title">Organic Chemistry: Alkanes</div>
+              <div class="d2-card-sub">Theory · Sub-lesson 4 of 6</div>
+              <div class="d2-card-footer">
+                <div class="d2-card-tag" style="background:var(--yellow-l);color:#856404">Theory</div>
+                <div class="d2-card-acc" style="color:var(--text-m)">67%</div>
+              </div>
+            </div>
+            <div class="d2-card ip">
+              <div class="d2-card-title">Equilibrium Constants</div>
+              <div class="d2-card-sub">Theory · Sub-lesson 2 of 5</div>
+              <div class="d2-card-footer">
+                <div class="d2-card-tag" style="background:var(--rose);color:white;font-size:7px;padding:2px 5px;border-radius:4px">Revisit</div>
+                <div class="d2-card-acc" style="color:var(--rose)">42%</div>
+              </div>
+            </div>
+            <div class="d2-col-head" style="margin-top:6px">
+              <div class="d2-col-dot" style="background:var(--green)"></div>
+              <div class="d2-col-title">Done</div>
+              <div class="d2-col-count">7</div>
+            </div>
+            <div class="d2-card done">
+              <div class="d2-card-title" style="opacity:.6">Atomic Structure</div>
+              <div class="d2-card-sub">Theory · Completed</div>
+              <div class="d2-card-footer">
+                <div class="d2-card-tag" style="background:#ECFDF5;color:#065F46">Done ✓</div>
+                <div class="d2-card-acc" style="color:var(--green)">91%</div>
+              </div>
+            </div>
+          </div>
+          <div class="d2-nav">
+            <div class="d2-nav-item active"><div class="d2-nav-icon"></div><div class="d2-nav-text">Board</div></div>
+            <div class="d2-nav-item"><div class="d2-nav-icon"></div><div class="d2-nav-text">Backlog</div></div>
+            <div class="d2-nav-item"><div class="d2-nav-icon"></div><div class="d2-nav-text">Progress</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DIRECTION 3: DASHBOARD HOME ── -->
+  <div class="dir-card">
+    <div class="dir-label">
+      <div>
+        <div class="dir-num">Direction 03</div>
+        <div class="dir-name">Dashboard Home</div>
+        <div class="dir-desc">Coverage ring and stats hero. Tasks surface below. Data-first entry point.</div>
+      </div>
+      <div class="dir-badge badge-data">Light</div>
+    </div>
+    <div class="phone-wrapper">
+      <div class="phone d3">
+        <div class="phone-inner">
+          <div class="phone-bar" style="background:var(--blue);color:white">
+            <span>9:41</span>
+            <div class="phone-bar-icons"><div class="phone-bar-icon" style="background:white;opacity:.8;border-radius:2px"></div></div>
+          </div>
+          <div class="d3-hero">
+            <div class="d3-hero-row">
+              <div class="d3-hero-text">
+                <h2>A/L Chemistry</h2>
+                <p>34% complete · 23 lessons done</p>
+              </div>
+              <div class="d3-ring-wrap">
+                <svg class="d3-ring-svg" viewBox="0 0 56 56">
+                  <circle class="d3-ring-track" cx="28" cy="28" r="22"/>
+                  <circle class="d3-ring-fill" cx="28" cy="28" r="22"/>
+                </svg>
+                <div class="d3-ring-label" style="color:white">34%</div>
+              </div>
+            </div>
+            <div class="d3-stats">
+              <div class="d3-stat">
+                <div class="d3-stat-val">78%</div>
+                <div class="d3-stat-lbl">Avg. accuracy</div>
+              </div>
+              <div class="d3-stat">
+                <div class="d3-stat-val">7</div>
+                <div class="d3-stat-lbl">Day streak</div>
+              </div>
+              <div class="d3-stat">
+                <div class="d3-stat-val" style="font-size:9px;padding-top:1px">Electro-<br>chem</div>
+                <div class="d3-stat-lbl">Weakest</div>
+              </div>
+            </div>
+          </div>
+          <div class="d3-section">
+            <div class="d3-section-head">
+              <div class="d3-section-title">In Progress</div>
+              <div class="d3-section-link">View all</div>
+            </div>
+          </div>
+          <div style="padding:0 12px">
+            <div class="d3-task">
+              <div class="d3-task-dot" style="background:var(--yellow)"></div>
+              <div class="d3-task-body">
+                <div class="d3-task-title">Organic Chemistry: Alkanes</div>
+                <div class="d3-task-sub">Sub-lesson 4/6 · Theory</div>
+              </div>
+              <div class="d3-task-arrow">›</div>
+            </div>
+            <div class="d3-task">
+              <div class="d3-task-dot" style="background:var(--rose)"></div>
+              <div class="d3-task-body">
+                <div class="d3-task-title">Equilibrium Constants</div>
+                <div class="d3-task-sub">Revisit · Quiz failed 42%</div>
+              </div>
+              <div class="d3-task-arrow">›</div>
+            </div>
+          </div>
+          <div class="d3-nav" style="margin-top:6px">
+            <div class="d3-nav-item active"><div class="d3-nav-icon"></div><div class="d3-nav-text">Home</div></div>
+            <div class="d3-nav-item"><div class="d3-nav-icon"></div><div class="d3-nav-text">Board</div></div>
+            <div class="d3-nav-item"><div class="d3-nav-icon"></div><div class="d3-nav-text">Backlog</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DIRECTION 4: DARK MODE FOCUS ── -->
+  <div class="dir-card">
+    <div class="dir-label">
+      <div>
+        <div class="dir-num">Direction 04</div>
+        <div class="dir-name">Dark Mode Focus</div>
+        <div class="dir-desc">Default dark. State colors luminous against charcoal. Evening-study optimised.</div>
+      </div>
+      <div class="dir-badge badge-focus">Dark</div>
+    </div>
+    <div class="phone-wrapper" style="background:#2A2D30">
+      <div class="phone d4">
+        <div class="phone-inner">
+          <div class="phone-bar" style="background:var(--dark);color:rgba(255,255,255,.8)">
+            <span>9:41</span>
+            <div class="phone-bar-icons"><div class="phone-bar-icon" style="background:rgba(255,255,255,.6);border-radius:2px"></div></div>
+          </div>
+          <div class="d4-header">
+            <div>
+              <div class="d4-title">My Board</div>
+              <div class="d4-subtitle">A/L Chemistry · Kavya</div>
+            </div>
+            <div class="d4-streak-chip">🔥 7</div>
+          </div>
+          <div class="d4-prog-bar-wrap">
+            <div class="d4-prog-label"><span>Syllabus coverage</span><span>34%</span></div>
+            <div class="d4-bar"><div class="d4-bar-fill"></div></div>
+          </div>
+          <div class="d4-section-label">In Progress</div>
+          <div class="d4-card ip">
+            <div class="d4-card-top">
+              <div>
+                <div class="d4-card-title">Organic Chemistry: Alkanes</div>
+                <div class="d4-card-sub">Theory · Sub-lesson 4 of 6</div>
+              </div>
+              <div class="d4-card-tag d4-tag-ip">Active</div>
+            </div>
+          </div>
+          <div class="d4-card" style="border-color:var(--rose)">
+            <div class="d4-card-top">
+              <div>
+                <div class="d4-card-title">Equilibrium Constants</div>
+                <div class="d4-card-sub">Revisit · Quiz 42%</div>
+              </div>
+              <div class="d4-card-tag" style="background:rgba(196,120,106,.15);color:var(--rose)">Revisit</div>
+            </div>
+          </div>
+          <div class="d4-section-label" style="margin-top:4px">To-Do</div>
+          <div class="d4-card todo">
+            <div class="d4-card-top">
+              <div>
+                <div class="d4-card-title">Electrochemistry Cells</div>
+                <div class="d4-card-sub">Theory · Not started</div>
+              </div>
+              <div class="d4-card-tag d4-tag-todo">Queued</div>
+            </div>
+          </div>
+          <div class="d4-section-label" style="margin-top:4px">Done (7)</div>
+          <div class="d4-card done">
+            <div class="d4-card-top">
+              <div>
+                <div class="d4-card-title" style="opacity:.7">Atomic Structure</div>
+                <div class="d4-card-sub">Theory · 91% accuracy</div>
+              </div>
+              <div class="d4-card-tag d4-tag-done">Done ✓</div>
+            </div>
+          </div>
+          <div class="d4-nav">
+            <div class="d4-nav-item active"><div class="d4-nav-icon"></div><div class="d4-nav-text">Board</div></div>
+            <div class="d4-nav-item"><div class="d4-nav-icon"></div><div class="d4-nav-text">Backlog</div></div>
+            <div class="d4-nav-item"><div class="d4-nav-icon"></div><div class="d4-nav-text">Progress</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DIRECTION 5: ACCORDION BOARD ── -->
+  <div class="dir-card">
+    <div class="dir-label">
+      <div>
+        <div class="dir-num">Direction 05</div>
+        <div class="dir-name">Accordion Board</div>
+        <div class="dir-desc">Collapsible sections. In Progress always expanded. Other states shown as compact pills.</div>
+      </div>
+      <div class="dir-badge badge-warm">Light</div>
+    </div>
+    <div class="phone-wrapper">
+      <div class="phone d5">
+        <div class="phone-inner">
+          <div class="phone-bar" style="background:white;color:var(--text)">
+            <span style="color:var(--text)">9:41</span>
+            <div class="phone-bar-icons"><div class="phone-bar-icon" style="background:var(--grey);border-radius:2px"></div></div>
+          </div>
+          <div class="d5-header">
+            <div class="d5-header-row">
+              <div class="d5-logo">StudyBoard</div>
+              <div><div style="font-size:8px;color:var(--text-l);text-align:right">Chemistry</div><div class="d5-pct">34% <span>complete</span></div></div>
+            </div>
+          </div>
+
+          <div class="d5-section-head active">
+            <div class="d5-sh-left">
+              <div class="d5-sh-dot" style="background:var(--yellow)"></div>
+              <div class="d5-sh-label">In Progress</div>
+              <div class="d5-sh-count">2</div>
+            </div>
+            <div class="d5-sh-arrow">▾</div>
+          </div>
+          <div class="d5-section-body">
+            <div class="d5-card">
+              <div class="d5-card-title">Organic Chemistry: Alkanes</div>
+              <div class="d5-card-sub">Theory · Sub-lesson 4/6</div>
+              <div class="d5-card-footer">
+                <div class="d5-cta">Continue studying →</div>
+              </div>
+            </div>
+            <div class="d5-card" style="border-color:var(--rose)">
+              <div class="d5-card-title">Equilibrium Constants</div>
+              <div class="d5-card-sub">Revisit · Quiz 42% — one concept away</div>
+              <div class="d5-card-footer">
+                <div class="d5-cta" style="color:var(--rose)">Review & retry →</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="d5-section-head">
+            <div class="d5-sh-left">
+              <div class="d5-sh-dot" style="background:var(--grey)"></div>
+              <div class="d5-sh-label">To-Do</div>
+              <div class="d5-sh-count">14</div>
+            </div>
+            <div class="d5-sh-arrow">›</div>
+          </div>
+          <div class="d5-collapsed">
+            <div class="d5-pill">Electrochemistry</div>
+            <div class="d5-pill">Reaction Rates</div>
+            <div class="d5-pill">+12 more</div>
+          </div>
+
+          <div class="d5-section-head">
+            <div class="d5-sh-left">
+              <div class="d5-sh-dot" style="background:var(--green)"></div>
+              <div class="d5-sh-label">Done</div>
+              <div class="d5-sh-count">7</div>
+            </div>
+            <div class="d5-sh-arrow">›</div>
+          </div>
+          <div class="d5-collapsed">
+            <div class="d5-pill" style="border-color:var(--green);color:var(--green)">Atomic Structure</div>
+            <div class="d5-pill" style="border-color:var(--green);color:var(--green)">+6 more</div>
+          </div>
+
+          <div class="d5-nav" style="margin-top:4px">
+            <div class="d5-nav-item active"><div class="d5-nav-icon"></div><div class="d5-nav-text">Board</div></div>
+            <div class="d5-nav-item"><div class="d5-nav-icon"></div><div class="d5-nav-text">Backlog</div></div>
+            <div class="d5-nav-item"><div class="d5-nav-icon"></div><div class="d5-nav-text">Progress</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DIRECTION 6: TODAY'S PLAN ── -->
+  <div class="dir-card">
+    <div class="dir-label">
+      <div>
+        <div class="dir-num">Direction 06</div>
+        <div class="dir-name">Today's Plan</div>
+        <div class="dir-desc">Yellow hero shows today's session goal + streak. Dark body with live tasks below.</div>
+      </div>
+      <div class="dir-badge badge-clean">Dark + Yellow</div>
+    </div>
+    <div class="phone-wrapper" style="background:#2A2D30">
+      <div class="phone d6">
+        <div class="phone-inner">
+          <div class="phone-bar" style="background:var(--yellow);color:var(--text)">
+            <span>9:41</span>
+            <div class="phone-bar-icons"><div class="phone-bar-icon" style="background:var(--text);border-radius:2px;opacity:.5"></div></div>
+          </div>
+          <div class="d6-hero">
+            <div class="d6-hero-top">
+              <div>
+                <div class="d6-hero-label">Evening session</div>
+                <div class="d6-hero-name">Let's keep<br>the momentum, Kavya.</div>
+              </div>
+              <div class="d6-hero-streak">🔥 7</div>
+            </div>
+            <div class="d6-hero-goal">
+              <div class="d6-hero-goal-label">Today's focus</div>
+              Finish Alkanes · Start Equilibrium
+            </div>
+          </div>
+          <div class="d6-body">
+            <div class="d6-section-label">Active</div>
+            <div class="d6-card">
+              <div class="d6-card-dot" style="background:var(--yellow)"></div>
+              <div class="d6-card-body">
+                <div class="d6-card-title">Organic Chemistry: Alkanes</div>
+                <div class="d6-card-sub">Theory · Sub-lesson 4/6</div>
+                <div class="d6-card-cta">Continue →</div>
+              </div>
+            </div>
+            <div class="d6-card">
+              <div class="d6-card-dot" style="background:var(--rose)"></div>
+              <div class="d6-card-body">
+                <div class="d6-card-title">Equilibrium Constants</div>
+                <div class="d6-card-sub">One concept away · Quiz 42%</div>
+                <div class="d6-card-cta" style="color:var(--rose)">Review & retry →</div>
+              </div>
+            </div>
+            <div class="d6-section-label" style="margin-top:4px">Done today</div>
+            <div class="d6-done-row">
+              <div class="d6-done-dot"></div>
+              <div class="d6-done-text">Atomic Structure — 91%</div>
+            </div>
+            <div class="d6-done-row">
+              <div class="d6-done-dot"></div>
+              <div class="d6-done-text">Chemical Bonding — 88%</div>
+            </div>
+          </div>
+          <div class="d6-nav">
+            <div class="d6-nav-item active"><div class="d6-nav-icon"></div><div class="d6-nav-text">Today</div></div>
+            <div class="d6-nav-item"><div class="d6-nav-icon"></div><div class="d6-nav-text">Board</div></div>
+            <div class="d6-nav-item"><div class="d6-nav-icon"></div><div class="d6-nav-text">Progress</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── EVALUATION GUIDE ─────────────────────────────────────── -->
+<div class="eval-grid">
+  <div class="eval-section">
+    <h3>Layout & Hierarchy</h3>
+    <div class="eval-row"><div class="eval-dir">01</div><div class="eval-text">Focus First — single hero card, maximum task clarity. Best for students with 1–2 active lessons.</div></div>
+    <div class="eval-row"><div class="eval-dir">02</div><div class="eval-text">Board Classic — tab filter shows column views. Familiar mental model, most structured.</div></div>
+    <div class="eval-row"><div class="eval-dir">03</div><div class="eval-text">Dashboard Home — data-first. Best for students who want to see their standing before picking work.</div></div>
+    <div class="eval-row"><div class="eval-dir">04</div><div class="eval-text">Dark Focus — luminous states on dark. Cleanest at night, state colors most visible.</div></div>
+    <div class="eval-row"><div class="eval-dir">05</div><div class="eval-text">Accordion — In Progress always front. Collapsed sections reduce visual overwhelm for long backlogs.</div></div>
+    <div class="eval-row"><div class="eval-dir">06</div><div class="eval-text">Today's Plan — session-framed. Golden Yellow hero sets the emotional tone for each study session.</div></div>
+  </div>
+
+  <div class="eval-section">
+    <h3>Emotional Feel</h3>
+    <div class="eval-row"><div class="eval-dir">01</div><div class="eval-text">Calm clarity. Blue header grounds the session, yellow accent pulls attention to live work.</div></div>
+    <div class="eval-row"><div class="eval-dir">02</div><div class="eval-text">Structured and professional. Most "task manager" — least emotional warmth.</div></div>
+    <div class="eval-row"><div class="eval-dir">03</div><div class="eval-text">Confident and data-anchored. Coverage ring = honest progress. Honest confidence energy.</div></div>
+    <div class="eval-row"><div class="eval-dir">04</div><div class="eval-text">Focused and calm. Dark mode reduces stimulation. Good for deep study sessions.</div></div>
+    <div class="eval-row"><div class="eval-dir">05</div><div class="eval-text">Manageable. Collapsed sections make the backlog feel less overwhelming — good for anxious students.</div></div>
+    <div class="eval-row"><div class="eval-dir">06</div><div class="eval-text">Most motivating. "Today's Plan" framing makes each session feel intentional and bounded.</div></div>
+  </div>
+
+  <div class="eval-section">
+    <h3>Questions to Consider</h3>
+    <div class="eval-row"><div class="eval-dir">→</div><div class="eval-text">Which direction would Kavya (first week) find least overwhelming on first open?</div></div>
+    <div class="eval-row"><div class="eval-dir">→</div><div class="eval-text">Which direction makes the Re-opened (Dusty Rose) state most visible at a glance?</div></div>
+    <div class="eval-row"><div class="eval-dir">→</div><div class="eval-text">Does dark mode feel right as the default, or should a light direction be the entry experience?</div></div>
+    <div class="eval-row"><div class="eval-dir">→</div><div class="eval-text">Should the dashboard data (coverage %) be always visible, or discovered via navigation?</div></div>
+    <div class="eval-row"><div class="eval-dir">→</div><div class="eval-text">Can elements from multiple directions be combined? (e.g., D01 layout with D04 dark mode)</div></div>
+  </div>
+</div>
+
+<div class="page-footer">
+  StudyBoard · UX Design Directions · Generated 2026-04-15 · Serene Scholar Palette · Material Design 3 / Flutter
+</div>
+
+</body>
+</html>

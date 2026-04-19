@@ -1,0 +1,995 @@
+diff --git a/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/domain/auth_repository.dart b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/domain/auth_repository.dart
+new file mode 100644
+index 0000000..f7f485d
+--- /dev/null
++++ b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/domain/auth_repository.dart
+@@ -0,0 +1,22 @@
++import 'package:fpdart/fpdart.dart';
++import 'package:studyboard_mobile/core/failures/failure.dart';
++import 'package:studyboard_mobile/features/auth/domain/student.dart';
++import 'package:supabase_flutter/supabase_flutter.dart' show AuthState;
++
++abstract interface class AuthRepository {
++  /// Creates a new student account with email and password.
++  Future<Either<Failure, Student>> signUpWithEmail({
++    required String name,
++    required String email,
++    required String password,
++  });
++
++  /// Returns the currently authenticated student, or null if no active session.
++  Future<Either<Failure, Student?>> getCurrentUser();
++
++  /// Signs out the current user and clears the local session.
++  Future<Either<Failure, Unit>> signOut();
++
++  /// Stream of Supabase auth state changes (login, logout, token refresh).
++  Stream<AuthState> getSessionStream();
++}
+diff --git a/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/data/auth_repository_impl.dart b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/data/auth_repository_impl.dart
+new file mode 100644
+index 0000000..455bc60
+--- /dev/null
++++ b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/data/auth_repository_impl.dart
+@@ -0,0 +1,102 @@
++import 'package:drift/drift.dart' show Value;
++import 'package:fpdart/fpdart.dart';
++import 'package:studyboard_mobile/core/database/app_database.dart';
++import 'package:studyboard_mobile/core/database/daos/student_dao.dart';
++import 'package:studyboard_mobile/core/failures/failure.dart';
++import 'package:studyboard_mobile/core/supabase/repository_base.dart';
++import 'package:studyboard_mobile/features/auth/data/models/student_dto.dart';
++import 'package:studyboard_mobile/features/auth/domain/auth_repository.dart';
++import 'package:studyboard_mobile/features/auth/domain/student.dart';
++import 'package:supabase_flutter/supabase_flutter.dart';
++
++class AuthRepositoryImpl extends RepositoryBase implements AuthRepository {
++  AuthRepositoryImpl(this._client, this._studentDao);
++
++  final SupabaseClient _client;
++  final StudentDao _studentDao;
++
++  @override
++  Future<Either<Failure, Student>> signUpWithEmail({
++    required String name,
++    required String email,
++    required String password,
++  }) async {
++    // Catch auth-specific errors before trySupabase() so we can map them to
++    // user-friendly messages rather than generic AuthFailure.
++    AuthResponse response;
++    try {
++      response = await _client.auth.signUp(
++        email: email,
++        password: password,
++        data: {'name': name},
++      );
++    } on AuthException catch (e) {
++      final msg = e.message.toLowerCase();
++      if (msg.contains('already registered') ||
++          msg.contains('already in use')) {
++        return const Left(
++          AuthFailure(
++            'An account with this email already exists. Try logging in.',
++          ),
++        );
++      }
++      return Left(AuthFailure(e.message));
++    } on Object {
++      return const Left(
++        NetworkFailure('No internet connection. Please try again.'),
++      );
++    }
++
++    final user = response.user;
++    if (user == null) {
++      return const Left(AuthFailure('Registration failed. Please try again.'));
++    }
++
++    return trySupabase(() async {
++      final now = DateTime.now().toUtc().toIso8601String();
++
++      // The students row is created by the on_auth_user_created trigger
++      // (SECURITY DEFINER) — no client-side INSERT needed.
++      // Drift write in the same trySupabase() block so failures are typed.
++      await _studentDao.upsertStudent(
++        StudentsTableCompanion.insert(
++          id: user.id,
++          name: name,
++          email: email,
++          district: '',
++          school: '',
++          lastActiveAt: now,
++          createdAt: now,
++          notificationsEnabled: const Value(true),
++        ),
++      );
++
++      return StudentDto.fromJson({
++        'id': user.id,
++        'name': name,
++        'email': email,
++        'district': '',
++        'school': '',
++        'notifications_enabled': true,
++        'last_active_at': now,
++        'created_at': now,
++      }).toStudent();
++    });
++  }
++
++  @override
++  Future<Either<Failure, Student?>> getCurrentUser() async {
++    final user = _client.auth.currentUser;
++    if (user == null) return const Right(null);
++    return Right(StudentDto.fromSupabaseUser(user).toStudent());
++  }
++
++  @override
++  Future<Either<Failure, Unit>> signOut() => trySupabase(() async {
++        await _client.auth.signOut();
++        return unit;
++      });
++
++  @override
++  Stream<AuthState> getSessionStream() => _client.auth.onAuthStateChange;
++}
+diff --git a/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/data/auth_provider.dart b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/data/auth_provider.dart
+new file mode 100644
+index 0000000..8e8975f
+--- /dev/null
++++ b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/data/auth_provider.dart
+@@ -0,0 +1,20 @@
++import 'package:riverpod_annotation/riverpod_annotation.dart';
++import 'package:studyboard_mobile/core/database/database_provider.dart';
++import 'package:studyboard_mobile/core/supabase/supabase_client_provider.dart';
++import 'package:studyboard_mobile/features/auth/data/auth_repository_impl.dart';
++import 'package:studyboard_mobile/features/auth/domain/auth_repository.dart';
++import 'package:supabase_flutter/supabase_flutter.dart' show AuthState;
++
++part 'auth_provider.g.dart';
++
++@Riverpod(keepAlive: true)
++AuthRepository authRepository(Ref ref) {
++  final client = ref.watch(supabaseClientProvider);
++  final studentDao = ref.watch(studentDaoProvider);
++  return AuthRepositoryImpl(client, studentDao);
++}
++
++@Riverpod(keepAlive: true)
++Stream<AuthState> authStateStream(Ref ref) {
++  return ref.watch(authRepositoryProvider).getSessionStream();
++}
+diff --git a/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/presentation/auth_state.dart b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/presentation/auth_state.dart
+new file mode 100644
+index 0000000..043f486
+--- /dev/null
++++ b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/presentation/auth_state.dart
+@@ -0,0 +1,11 @@
++import 'package:freezed_annotation/freezed_annotation.dart';
++import 'package:studyboard_mobile/features/auth/domain/student.dart';
++
++part 'auth_state.freezed.dart';
++
++@freezed
++abstract class AuthState with _$AuthState {
++  const factory AuthState.unauthenticated() = _Unauthenticated;
++  const factory AuthState.authenticated({required Student student}) =
++      _Authenticated;
++}
+diff --git a/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/presentation/auth_notifier.dart b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/presentation/auth_notifier.dart
+new file mode 100644
+index 0000000..18d863b
+--- /dev/null
++++ b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/presentation/auth_notifier.dart
+@@ -0,0 +1,31 @@
++import 'package:riverpod_annotation/riverpod_annotation.dart';
++import 'package:studyboard_mobile/features/auth/data/auth_provider.dart';
++import 'package:studyboard_mobile/features/auth/presentation/auth_state.dart';
++
++part 'auth_notifier.g.dart';
++
++@Riverpod(keepAlive: true)
++class AuthNotifier extends _$AuthNotifier {
++  @override
++  Future<AuthState> build() async {
++    // Story 1.8 adds session persistence check here.
++    return const AuthState.unauthenticated();
++  }
++
++  Future<void> signUpWithEmail(
++    String name,
++    String email,
++    String password,
++  ) async {
++    state = const AsyncValue<AuthState>.loading();
++    final result = await ref.read(authRepositoryProvider).signUpWithEmail(
++          name: name,
++          email: email,
++          password: password,
++        );
++    state = result.fold(
++      (failure) => AsyncValue<AuthState>.error(failure, StackTrace.current),
++      (student) => AsyncValue.data(AuthState.authenticated(student: student)),
++    );
++  }
++}
+diff --git a/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/presentation/register_screen.dart b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/presentation/register_screen.dart
+new file mode 100644
+index 0000000..708f46f
+--- /dev/null
++++ b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/presentation/register_screen.dart
+@@ -0,0 +1,198 @@
++import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++import 'package:go_router/go_router.dart';
++import 'package:studyboard_mobile/core/failures/failure.dart';
++import 'package:studyboard_mobile/features/auth/presentation/auth_notifier.dart';
++import 'package:studyboard_mobile/features/auth/presentation/auth_state.dart';
++import 'package:studyboard_mobile/features/auth/presentation/widgets/auth_form_field.dart';
++
++class RegisterScreen extends ConsumerStatefulWidget {
++  const RegisterScreen({super.key});
++
++  @override
++  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
++}
++
++class _RegisterScreenState extends ConsumerState<RegisterScreen> {
++  final _formKey = GlobalKey<FormState>();
++  final _nameController = TextEditingController();
++  final _emailController = TextEditingController();
++  final _passwordController = TextEditingController();
++
++  final _nameFocus = FocusNode();
++  final _emailFocus = FocusNode();
++  final _passwordFocus = FocusNode();
++
++  String? _nameError;
++  String? _emailError;
++  String? _passwordError;
++  String? _errorMessage;
++  bool _isFormValid = false;
++
++  static final _emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
++
++  @override
++  void initState() {
++    super.initState();
++
++    _nameFocus.addListener(() {
++      if (!_nameFocus.hasFocus) {
++        setState(() {
++          _nameError = _validateName(_nameController.text);
++        });
++      }
++    });
++
++    _emailFocus.addListener(() {
++      if (!_emailFocus.hasFocus) {
++        setState(() {
++          _emailError = _validateEmail(_emailController.text);
++        });
++      }
++    });
++
++    _passwordFocus.addListener(() {
++      if (!_passwordFocus.hasFocus) {
++        setState(() {
++          _passwordError = _validatePassword(_passwordController.text);
++        });
++      }
++    });
++
++    _nameController.addListener(_updateFormValidity);
++    _emailController.addListener(_updateFormValidity);
++    _passwordController.addListener(_updateFormValidity);
++  }
++
++  @override
++  void dispose() {
++    _nameController.dispose();
++    _emailController.dispose();
++    _passwordController.dispose();
++    _nameFocus.dispose();
++    _emailFocus.dispose();
++    _passwordFocus.dispose();
++    super.dispose();
++  }
++
++  String? _validateName(String value) =>
++      value.trim().isEmpty ? 'Name is required' : null;
++
++  String? _validateEmail(String value) {
++    if (value.isEmpty) return 'Email is required';
++    if (!_emailRegex.hasMatch(value)) return 'Enter a valid email address';
++    return null;
++  }
++
++  String? _validatePassword(String value) {
++    if (value.isEmpty) return 'Password is required';
++    if (value.length < 8) return 'Password must be at least 8 characters';
++    return null;
++  }
++
++  void _updateFormValidity() {
++    final valid = _nameController.text.trim().isNotEmpty &&
++        _validateEmail(_emailController.text) == null &&
++        _passwordController.text.length >= 8;
++    if (valid != _isFormValid) setState(() => _isFormValid = valid);
++  }
++
++  Future<void> _submit() async {
++    setState(() => _errorMessage = null);
++    await ref.read(authProvider.notifier).signUpWithEmail(
++          _nameController.text.trim(),
++          _emailController.text.trim(),
++          _passwordController.text,
++        );
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    ref.listen<AsyncValue<AuthState>>(authProvider, (_, next) {
++      next.whenOrNull(
++        data: (authState) => authState.whenOrNull(
++          authenticated: (_) => context.go('/onboarding'),
++        ),
++        error: (error, _) => setState(() {
++          _errorMessage = error is Failure
++              ? error.message
++              : 'Something went wrong. Please try again.';
++        }),
++      );
++    });
++
++    final authState = ref.watch(authProvider);
++    final isLoading = authState.isLoading;
++    final colorScheme = Theme.of(context).colorScheme;
++
++    return Scaffold(
++      resizeToAvoidBottomInset: true,
++      body: SafeArea(
++        child: Center(
++          child: SingleChildScrollView(
++            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
++            child: Form(
++              key: _formKey,
++              child: Column(
++                crossAxisAlignment: CrossAxisAlignment.stretch,
++                children: [
++                  Text(
++                    'Create your account',
++                    style: Theme.of(context).textTheme.headlineMedium,
++                    textAlign: TextAlign.center,
++                  ),
++                  const SizedBox(height: 32),
++                  AuthFormField(
++                    label: 'Full name',
++                    controller: _nameController,
++                    focusNode: _nameFocus,
++                    textInputAction: TextInputAction.next,
++                    errorText: _nameError,
++                  ),
++                  const SizedBox(height: 16),
++                  AuthFormField(
++                    label: 'Email',
++                    controller: _emailController,
++                    focusNode: _emailFocus,
++                    keyboardType: TextInputType.emailAddress,
++                    textInputAction: TextInputAction.next,
++                    errorText: _emailError,
++                  ),
++                  const SizedBox(height: 16),
++                  AuthFormField(
++                    label: 'Password',
++                    controller: _passwordController,
++                    focusNode: _passwordFocus,
++                    obscureText: true,
++                    textInputAction: TextInputAction.done,
++                    errorText: _passwordError,
++                  ),
++                  if (_errorMessage != null) ...[
++                    const SizedBox(height: 12),
++                    Text(
++                      _errorMessage!,
++                      style: TextStyle(color: colorScheme.error),
++                      textAlign: TextAlign.center,
++                    ),
++                  ],
++                  const SizedBox(height: 24),
++                  FilledButton(
++                    onPressed:
++                        (_isFormValid && !isLoading) ? _submit : null,
++                    child: isLoading
++                        ? const SizedBox(
++                            height: 20,
++                            width: 20,
++                            child: CircularProgressIndicator(strokeWidth: 2),
++                          )
++                        : const Text('Create account'),
++                  ),
++                ],
++              ),
++            ),
++          ),
++        ),
++      ),
++    );
++  }
++}
+diff --git a/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/presentation/widgets/auth_form_field.dart b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/presentation/widgets/auth_form_field.dart
+new file mode 100644
+index 0000000..96ea2f3
+--- /dev/null
++++ b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/features/auth/presentation/widgets/auth_form_field.dart
+@@ -0,0 +1,57 @@
++import 'package:flutter/material.dart';
++
++class AuthFormField extends StatelessWidget {
++  const AuthFormField({
++    required this.label,
++    required this.controller,
++    super.key,
++    this.validator,
++    this.keyboardType,
++    this.obscureText = false,
++    this.textInputAction,
++    this.errorText,
++    this.focusNode,
++  });
++
++  final String label;
++  final TextEditingController controller;
++  final String? Function(String?)? validator;
++  final TextInputType? keyboardType;
++  final bool obscureText;
++  final TextInputAction? textInputAction;
++  final String? errorText;
++  final FocusNode? focusNode;
++
++  @override
++  Widget build(BuildContext context) {
++    final colorScheme = Theme.of(context).colorScheme;
++    return TextFormField(
++      controller: controller,
++      focusNode: focusNode,
++      keyboardType: keyboardType,
++      obscureText: obscureText,
++      textInputAction: textInputAction,
++      validator: validator,
++      decoration: InputDecoration(
++        labelText: label,
++        errorText: errorText,
++        errorStyle: TextStyle(color: colorScheme.error),
++        border: OutlineInputBorder(
++          borderSide: BorderSide(color: colorScheme.outline),
++        ),
++        enabledBorder: OutlineInputBorder(
++          borderSide: BorderSide(color: colorScheme.outline),
++        ),
++        focusedBorder: OutlineInputBorder(
++          borderSide: BorderSide(color: colorScheme.primary),
++        ),
++        errorBorder: OutlineInputBorder(
++          borderSide: BorderSide(color: colorScheme.error),
++        ),
++        focusedErrorBorder: OutlineInputBorder(
++          borderSide: BorderSide(color: colorScheme.error),
++        ),
++      ),
++    );
++  }
++}
+diff --git a/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/router.dart b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/router.dart
+new file mode 100644
+index 0000000..7274f9b
+--- /dev/null
++++ b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/lib/router.dart
+@@ -0,0 +1,113 @@
++import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++import 'package:go_router/go_router.dart';
++import 'package:studyboard_mobile/features/auth/presentation/register_screen.dart';
++import 'package:studyboard_mobile/features/backlog/presentation/backlog_screen.dart';
++import 'package:studyboard_mobile/features/board/presentation/board_screen.dart';
++import 'package:studyboard_mobile/features/dashboard/presentation/dashboard_screen.dart';
++
++final goRouterProvider = Provider<GoRouter>((ref) {
++  final router = GoRouter(
++    // Story 1.8 replaces this with auth-aware redirect using
++    // authStateStreamProvider.
++    initialLocation: '/register',
++    routes: [
++      GoRoute(
++        path: '/register',
++        pageBuilder: (_, _) => const MaterialPage(child: RegisterScreen()),
++      ),
++      GoRoute(
++        path: '/onboarding',
++        // Story 1.9 replaces this placeholder with the real OnboardingScreen.
++        pageBuilder: (_, _) =>
++            const MaterialPage(child: _OnboardingPlaceholder()),
++      ),
++      ShellRoute(
++        builder: (context, state, child) => ScaffoldWithNavBar(child: child),
++        routes: [
++          GoRoute(
++            path: '/board',
++            pageBuilder: (_, _) =>
++                const NoTransitionPage(child: BoardScreen()),
++          ),
++          GoRoute(
++            path: '/dashboard',
++            pageBuilder: (_, _) =>
++                const NoTransitionPage(child: DashboardScreen()),
++          ),
++          GoRoute(
++            path: '/backlog',
++            pageBuilder: (_, _) =>
++                const NoTransitionPage(child: BacklogScreen()),
++          ),
++        ],
++      ),
++    ],
++  );
++  ref.onDispose(router.dispose);
++  return router;
++});
++
++class ScaffoldWithNavBar extends StatelessWidget {
++  const ScaffoldWithNavBar({required this.child, super.key});
++
++  final Widget child;
++
++  @override
++  Widget build(BuildContext context) {
++    return Scaffold(
++      body: child,
++      bottomNavigationBar: NavigationBar(
++        selectedIndex: _selectedIndex(context),
++        onDestinationSelected: (index) =>
++            _onDestinationSelected(context, index),
++        destinations: const [
++          NavigationDestination(
++            icon: Icon(Icons.view_kanban_outlined),
++            selectedIcon: Icon(Icons.view_kanban),
++            label: 'Board',
++          ),
++          NavigationDestination(
++            icon: Icon(Icons.bar_chart_outlined),
++            selectedIcon: Icon(Icons.bar_chart),
++            label: 'Dashboard',
++          ),
++          NavigationDestination(
++            icon: Icon(Icons.list_alt_outlined),
++            selectedIcon: Icon(Icons.list_alt),
++            label: 'Backlog',
++          ),
++        ],
++      ),
++    );
++  }
++
++  int _selectedIndex(BuildContext context) {
++    final location = GoRouterState.of(context).uri.path;
++    if (location.startsWith('/dashboard')) return 1;
++    if (location.startsWith('/backlog')) return 2;
++    return 0;
++  }
++
++  void _onDestinationSelected(BuildContext context, int index) {
++    switch (index) {
++      case 0:
++        context.go('/board');
++      case 1:
++        context.go('/dashboard');
++      case 2:
++        context.go('/backlog');
++      default:
++        assert(false, 'Unhandled NavigationBar index: $index');
++    }
++  }
++}
++
++class _OnboardingPlaceholder extends StatelessWidget {
++  const _OnboardingPlaceholder();
++
++  @override
++  Widget build(BuildContext context) => const Scaffold(
++        body: Center(child: Text('Onboarding — coming in Story 1.9')),
++      );
++}
+diff --git a/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/test/features/auth/presentation/auth_notifier_test.dart b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/test/features/auth/presentation/auth_notifier_test.dart
+new file mode 100644
+index 0000000..08b0e7e
+--- /dev/null
++++ b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/test/features/auth/presentation/auth_notifier_test.dart
+@@ -0,0 +1,120 @@
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++import 'package:flutter_test/flutter_test.dart';
++import 'package:fpdart/fpdart.dart';
++import 'package:mocktail/mocktail.dart';
++import 'package:studyboard_mobile/core/failures/failure.dart';
++import 'package:studyboard_mobile/features/auth/data/auth_provider.dart';
++import 'package:studyboard_mobile/features/auth/domain/auth_repository.dart';
++import 'package:studyboard_mobile/features/auth/domain/student.dart';
++import 'package:studyboard_mobile/features/auth/presentation/auth_notifier.dart';
++import 'package:studyboard_mobile/features/auth/presentation/auth_state.dart';
++
++class _MockAuthRepository extends Mock implements AuthRepository {}
++
++void main() {
++  late _MockAuthRepository mockRepo;
++  late ProviderContainer container;
++
++  setUp(() {
++    mockRepo = _MockAuthRepository();
++    container = ProviderContainer(
++      overrides: [
++        authRepositoryProvider.overrideWith((ref) => mockRepo),
++      ],
++    );
++  });
++
++  tearDown(() => container.dispose());
++
++  group('AuthNotifier.signUpWithEmail', () {
++    test('success → state transitions to AuthState.authenticated', () async {
++      final student = _fakeStudent();
++      when(
++        () => mockRepo.signUpWithEmail(
++          name: any(named: 'name'),
++          email: any(named: 'email'),
++          password: any(named: 'password'),
++        ),
++      ).thenAnswer((_) async => Right(student));
++
++      await container.read(authProvider.future);
++
++      await container
++          .read(authProvider.notifier)
++          .signUpWithEmail('Test User', 'test@example.com', 'password123');
++
++      final state = container.read(authProvider);
++      expect(state.hasValue, isTrue);
++      final isAuthenticated = state.requireValue.when(
++        unauthenticated: () => false,
++        authenticated: (_) => true,
++      );
++      expect(isAuthenticated, isTrue);
++    });
++
++    test('email conflict → state is AsyncError with AuthFailure', () async {
++      when(
++        () => mockRepo.signUpWithEmail(
++          name: any(named: 'name'),
++          email: any(named: 'email'),
++          password: any(named: 'password'),
++        ),
++      ).thenAnswer(
++        (_) async => const Left(
++          AuthFailure(
++            'An account with this email already exists. Try logging in.',
++          ),
++        ),
++      );
++
++      await container.read(authProvider.future);
++
++      await container
++          .read(authProvider.notifier)
++          .signUpWithEmail('Test User', 'used@example.com', 'password123');
++
++      final state = container.read(authProvider);
++      expect(state.hasError, isTrue);
++      expect(state.error, isA<AuthFailure>());
++    });
++
++    test('offline → state is AsyncError with NetworkFailure', () async {
++      when(
++        () => mockRepo.signUpWithEmail(
++          name: any(named: 'name'),
++          email: any(named: 'email'),
++          password: any(named: 'password'),
++        ),
++      ).thenAnswer(
++        (_) async => const Left(
++          NetworkFailure('No internet connection. Please try again.'),
++        ),
++      );
++
++      await container.read(authProvider.future);
++
++      await container
++          .read(authProvider.notifier)
++          .signUpWithEmail('Test User', 'test@example.com', 'password123');
++
++      final state = container.read(authProvider);
++      expect(state.hasError, isTrue);
++      expect(state.error, isA<NetworkFailure>());
++    });
++  });
++}
++
++// ---------------------------------------------------------------------------
++// Helpers
++// ---------------------------------------------------------------------------
++
++Student _fakeStudent() => const Student(
++      id: 'user-abc',
++      name: 'Test User',
++      email: 'test@example.com',
++      district: '',
++      school: '',
++      notificationsEnabled: true,
++      lastActiveAt: '2026-04-18T00:00:00.000Z',
++      createdAt: '2026-04-18T00:00:00.000Z',
++    );
+diff --git a/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/test/features/auth/data/auth_repository_impl_test.dart b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/test/features/auth/data/auth_repository_impl_test.dart
+new file mode 100644
+index 0000000..e8d9aab
+--- /dev/null
++++ b/c:/Users/lahir/Desktop/StudyBoard/studyboard_mobile/test/features/auth/data/auth_repository_impl_test.dart
+@@ -0,0 +1,261 @@
++import 'dart:async';
++
++import 'package:flutter_test/flutter_test.dart';
++import 'package:fpdart/fpdart.dart';
++import 'package:mocktail/mocktail.dart';
++import 'package:studyboard_mobile/core/database/app_database.dart';
++import 'package:studyboard_mobile/core/database/daos/student_dao.dart';
++import 'package:studyboard_mobile/core/failures/failure.dart';
++import 'package:studyboard_mobile/features/auth/data/auth_repository_impl.dart';
++import 'package:studyboard_mobile/features/auth/domain/student.dart';
++import 'package:supabase_flutter/supabase_flutter.dart';
++
++class _MockSupabaseClient extends Mock implements SupabaseClient {}
++
++class _MockGoTrueClient extends Mock implements GoTrueClient {}
++
++class _MockUser extends Mock implements User {}
++
++class _MockStudentDao extends Mock implements StudentDao {}
++
++class _MockSupabaseQueryBuilder extends Mock implements SupabaseQueryBuilder {}
++
++/// Fake that satisfies the [Future] protocol so `await insert({...})` resolves.
++/// Satisfies the [Future] protocol so `await queryBuilder.insert({...})`
++/// resolves immediately without making real HTTP calls.
++class _FakeFilterBuilder extends Fake
++    implements PostgrestFilterBuilder<dynamic> {
++  @override
++  Future<R> then<R>(
++    FutureOr<R> Function(dynamic) onValue, {
++    Function? onError,
++  }) =>
++      Future<dynamic>.value().then(onValue);
++
++  @override
++  Future<dynamic> catchError(Function onError,
++          {bool Function(Object)? test}) =>
++      Future<dynamic>.value();
++
++  @override
++  Future<dynamic> whenComplete(FutureOr<void> Function() action) =>
++      Future<dynamic>.value().whenComplete(action);
++
++  @override
++  Stream<dynamic> asStream() => Stream.value(null);
++
++  @override
++  Future<dynamic> timeout(
++    Duration timeLimit, {
++    FutureOr<dynamic> Function()? onTimeout,
++  }) =>
++      Future<dynamic>.value();
++}
++
++void main() {
++  setUpAll(() {
++    // mocktail requires fallback values for non-nullable complex parameters.
++    registerFallbackValue(SignOutScope.local);
++    registerFallbackValue(const StudentsTableCompanion());
++  });
++
++  late _MockSupabaseClient mockClient;
++  late _MockGoTrueClient mockAuth;
++  late _MockStudentDao mockStudentDao;
++  late AuthRepositoryImpl repository;
++
++  setUp(() {
++    mockClient = _MockSupabaseClient();
++    mockAuth = _MockGoTrueClient();
++    mockStudentDao = _MockStudentDao();
++    when(() => mockClient.auth).thenReturn(mockAuth);
++    repository = AuthRepositoryImpl(mockClient, mockStudentDao);
++  });
++
++  group('AuthRepositoryImpl.getCurrentUser', () {
++    test('returns Right(null) when no session exists', () async {
++      when(() => mockAuth.currentUser).thenReturn(null);
++
++      final result = await repository.getCurrentUser();
++
++      expect(result, const Right<Failure, Student?>(null));
++    });
++
++    test('returns Right(Student) when user is authenticated', () async {
++      final fakeUser = _mockUser();
++      when(() => mockAuth.currentUser).thenReturn(fakeUser);
++
++      final result = await repository.getCurrentUser();
++
++      expect(result.isRight(), isTrue);
++      result.fold(
++        (_) => fail('Expected Right'),
++        (student) {
++          expect(student, isNotNull);
++          expect(student!.id, equals('user-123'));
++          expect(student.email, equals('test@example.com'));
++        },
++      );
++    });
++  });
++
++  group('AuthRepositoryImpl.signOut', () {
++    test('calls auth.signOut and returns Right(unit)', () async {
++      when(() => mockAuth.signOut(scope: any(named: 'scope')))
++          .thenAnswer((_) async {});
++
++      final result = await repository.signOut();
++
++      expect(result, const Right<Failure, Unit>(unit));
++      verify(() => mockAuth.signOut(scope: any(named: 'scope'))).called(1);
++    });
++
++    test('returns Left(AuthFailure) when signOut throws AuthException',
++        () async {
++      when(() => mockAuth.signOut(scope: any(named: 'scope')))
++          .thenThrow(const AuthException('session expired'));
++
++      final result = await repository.signOut();
++
++      expect(result.isLeft(), isTrue);
++      result.fold(
++        (f) => expect(f, isA<AuthFailure>()),
++        (_) => fail('Expected Left'),
++      );
++    });
++  });
++
++  group('AuthRepositoryImpl.getSessionStream', () {
++    test('returns the onAuthStateChange stream', () {
++      final controller = StreamController<AuthState>.broadcast();
++      when(() => mockAuth.onAuthStateChange)
++          .thenAnswer((_) => controller.stream);
++
++      final stream = repository.getSessionStream();
++
++      expect(stream, isA<Stream<AuthState>>());
++      unawaited(controller.close());
++    });
++  });
++
++  group('AuthRepositoryImpl.signUpWithEmail', () {
++    late _MockSupabaseQueryBuilder mockQueryBuilder;
++
++    setUp(() {
++      mockQueryBuilder = _MockSupabaseQueryBuilder();
++      when(() => mockClient.from(any())).thenAnswer((_) => mockQueryBuilder);
++      when(() => mockQueryBuilder.insert(any()))
++          .thenAnswer((_) => _FakeFilterBuilder());
++    });
++
++    test('success → Right(Student) and Drift upsert called', () async {
++      final mockUser = _mockUser();
++      when(
++        () => mockAuth.signUp(
++          email: any(named: 'email'),
++          password: any(named: 'password'),
++        ),
++      ).thenAnswer((_) async => AuthResponse(user: mockUser));
++      when(() => mockStudentDao.upsertStudent(any()))
++          .thenAnswer((_) async {});
++
++      final result = await repository.signUpWithEmail(
++        name: 'Test User',
++        email: 'test@example.com',
++        password: 'password123',
++      );
++
++      expect(result.isRight(), isTrue);
++      result.fold(
++        (_) => fail('Expected Right'),
++        (student) {
++          expect(student.id, equals('user-123'));
++          expect(student.name, equals('Test User'));
++          expect(student.email, equals('test@example.com'));
++        },
++      );
++      verify(() => mockStudentDao.upsertStudent(any())).called(1);
++    });
++
++    test('duplicate email → Left(AuthFailure) with user-friendly message',
++        () async {
++      when(
++        () => mockAuth.signUp(
++          email: any(named: 'email'),
++          password: any(named: 'password'),
++        ),
++      ).thenThrow(const AuthException('User already registered'));
++
++      final result = await repository.signUpWithEmail(
++        name: 'Test User',
++        email: 'used@example.com',
++        password: 'password123',
++      );
++
++      expect(result.isLeft(), isTrue);
++      result.fold(
++        (f) {
++          expect(f, isA<AuthFailure>());
++          expect(
++            f.message,
++            equals(
++              'An account with this email already exists. Try logging in.',
++            ),
++          );
++        },
++        (_) => fail('Expected Left'),
++      );
++      verifyNever(() => mockStudentDao.upsertStudent(any()));
++    });
++
++    test('offline → Left(NetworkFailure)', () async {
++      when(
++        () => mockAuth.signUp(
++          email: any(named: 'email'),
++          password: any(named: 'password'),
++        ),
++      ).thenThrow(Exception('SocketException: No internet'));
++
++      final result = await repository.signUpWithEmail(
++        name: 'Test User',
++        email: 'test@example.com',
++        password: 'password123',
++      );
++
++      expect(result.isLeft(), isTrue);
++      result.fold(
++        (f) => expect(f, isA<NetworkFailure>()),
++        (_) => fail('Expected Left'),
++      );
++      verifyNever(() => mockStudentDao.upsertStudent(any()));
++    });
++  });
++
++  group('data-layer boundary', () {
++    test('uses only the injected client, never Supabase.instance', () {
++      // Constructing with a different client must not interact with the
++      // original mock — proves injection rather than global singleton access.
++      final otherClient = _MockSupabaseClient();
++      final otherAuth = _MockGoTrueClient();
++      when(() => otherClient.auth).thenReturn(otherAuth);
++      when(() => otherAuth.currentUser).thenReturn(null);
++
++      AuthRepositoryImpl(otherClient, _MockStudentDao());
++
++      verifyNever(() => mockAuth.currentUser);
++    });
++  });
++}
++
++// ---------------------------------------------------------------------------
++// Helpers
++// ---------------------------------------------------------------------------
++
++User _mockUser() {
++  final user = _MockUser();
++  when(() => user.id).thenReturn('user-123');
++  when(() => user.email).thenReturn('test@example.com');
++  when(() => user.lastSignInAt).thenReturn('2026-04-18T00:00:00.000Z');
++  when(() => user.createdAt).thenReturn('2026-04-18T00:00:00.000Z');
++  return user;
++}

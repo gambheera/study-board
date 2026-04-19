@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell.exe -Command \"flutter --version 2>&1; dart --version 2>&1; dart pub global list 2>&1 | Select-String 'very_good'\")",
+      "Bash(very_good --version)",
+      "Read(//opt/flutter/bin/**)",
+      "Bash(find /c /d /e -name \"flutter.bat\")",
+      "Bash(cmd /c \"flutter --version\")",
+      "Bash(cmd /c \"where flutter\")",
+      "Bash(cmd /c \"flutter --version 2>&1\")",
+      "Bash(powershell -Command \"flutter --version\")"
+    ]
+  }
+}

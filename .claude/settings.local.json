@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(flutter --version)",
+      "Bash(dart pub:*)",
+      "Bash(cmd.exe /c \"where flutter 2>&1\")",
+      "Bash(cmd.exe /c \"where dart 2>&1\")",
+      "Bash(cmd.exe /c \"flutter --version 2>&1\")",
+      "Bash(cmd.exe /c \"dart --version 2>&1\")",
+      "Read(//c//**)"
+    ]
+  }
+}

@@ -8,6 +8,7 @@ environment:
   flutter: ^3.41.0
 
 dependencies:
+  clock: ^1.1.2
   connectivity_plus: ^7.1.1
   drift: ^2.22.0
   drift_flutter: ^0.2.4
@@ -16,7 +17,9 @@ dependencies:
   firebase_messaging: ^16.2.0
   flutter:
     sdk: flutter
+  cached_network_image: ^3.4.1
   flutter_cache_manager: ^3.4.1
+  flutter_markdown: ^0.7.6
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^3.0.0

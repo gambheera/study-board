@@ -13,6 +13,8 @@ final class DatabaseFailure extends Failure {
 
 final class AuthFailure extends Failure {
   const AuthFailure(super.message);
+
+  static const String googleSignInCancelled = 'Google Sign-In was cancelled.';
 }
 
 final class ValidationFailure extends Failure {

@@ -122,10 +122,10 @@ return authenticated(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  unauthenticated,TResult Function( Student student,  bool isNewStudent)?  authenticated,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( bool sessionExpired)?  unauthenticated,TResult Function( Student student,  bool isNewStudent)?  authenticated,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Unauthenticated() when unauthenticated != null:
-return unauthenticated();case _Authenticated() when authenticated != null:
+return unauthenticated(_that.sessionExpired);case _Authenticated() when authenticated != null:
 return authenticated(_that.student,_that.isNewStudent);case _:
   return orElse();
 
@@ -144,10 +144,10 @@ return authenticated(_that.student,_that.isNewStudent);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  unauthenticated,required TResult Function( Student student,  bool isNewStudent)  authenticated,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( bool sessionExpired)  unauthenticated,required TResult Function( Student student,  bool isNewStudent)  authenticated,}) {final _that = this;
 switch (_that) {
 case _Unauthenticated():
-return unauthenticated();case _Authenticated():
+return unauthenticated(_that.sessionExpired);case _Authenticated():
 return authenticated(_that.student,_that.isNewStudent);case _:
   throw StateError('Unexpected subclass');
 
@@ -165,10 +165,10 @@ return authenticated(_that.student,_that.isNewStudent);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  unauthenticated,TResult? Function( Student student,  bool isNewStudent)?  authenticated,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( bool sessionExpired)?  unauthenticated,TResult? Function( Student student,  bool isNewStudent)?  authenticated,}) {final _that = this;
 switch (_that) {
 case _Unauthenticated() when unauthenticated != null:
-return unauthenticated();case _Authenticated() when authenticated != null:
+return unauthenticated(_that.sessionExpired);case _Authenticated() when authenticated != null:
 return authenticated(_that.student,_that.isNewStudent);case _:
   return null;
 
@@ -181,33 +181,67 @@ return authenticated(_that.student,_that.isNewStudent);case _:
 
 
 class _Unauthenticated implements AuthState {
-  const _Unauthenticated();
+  const _Unauthenticated({this.sessionExpired = false});
   
 
+@JsonKey() final  bool sessionExpired;
 
-
+/// Create a copy of AuthState
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$UnauthenticatedCopyWith<_Unauthenticated> get copyWith => __$UnauthenticatedCopyWithImpl<_Unauthenticated>(this, _$identity);
 
 
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Unauthenticated);
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Unauthenticated&&(identical(other.sessionExpired, sessionExpired) || other.sessionExpired == sessionExpired));
 }
 
 
 @override
-int get hashCode => runtimeType.hashCode;
+int get hashCode => Object.hash(runtimeType,sessionExpired);
 
 @override
 String toString() {
-  return 'AuthState.unauthenticated()';
+  return 'AuthState.unauthenticated(sessionExpired: $sessionExpired)';
 }
 
 
 }
 
+/// @nodoc
+abstract mixin class _$UnauthenticatedCopyWith<$Res> implements $AuthStateCopyWith<$Res> {
+  factory _$UnauthenticatedCopyWith(_Unauthenticated value, $Res Function(_Unauthenticated) _then) = __$UnauthenticatedCopyWithImpl;
+@useResult
+$Res call({
+ bool sessionExpired
+});
 
 
+
+
+}
+/// @nodoc
+class __$UnauthenticatedCopyWithImpl<$Res>
+    implements _$UnauthenticatedCopyWith<$Res> {
+  __$UnauthenticatedCopyWithImpl(this._self, this._then);
+
+  final _Unauthenticated _self;
+  final $Res Function(_Unauthenticated) _then;
+
+/// Create a copy of AuthState
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? sessionExpired = null,}) {
+  return _then(_Unauthenticated(
+sessionExpired: null == sessionExpired ? _self.sessionExpired : sessionExpired // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+
+}
 
 /// @nodoc
 

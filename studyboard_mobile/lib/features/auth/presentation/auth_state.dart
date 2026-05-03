@@ -5,7 +5,9 @@ part 'auth_state.freezed.dart';
 
 @freezed
 abstract class AuthState with _$AuthState {
-  const factory AuthState.unauthenticated() = _Unauthenticated;
+  const factory AuthState.unauthenticated({
+    @Default(false) bool sessionExpired,
+  }) = _Unauthenticated;
   const factory AuthState.authenticated({
     required Student student,
     @Default(false) bool isNewStudent,

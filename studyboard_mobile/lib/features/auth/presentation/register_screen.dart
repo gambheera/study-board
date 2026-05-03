@@ -114,6 +114,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<AuthState>>(authProvider, (_, next) {
       next.whenOrNull(
+        loading: () {
+          if (!mounted) return;
+          setState(() => _errorMessage = null);
+        },
         data: (authState) {
           if (!mounted) return;
           setState(() => _errorMessage = null);
@@ -124,11 +128,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         },
         error: (error, _) {
           if (!mounted) return;
-          setState(() {
-            _errorMessage = error is Failure
-                ? error.message
-                : 'Something went wrong. Please try again.';
-          });
+          final message = error is Failure
+              ? error.message
+              : 'Something went wrong. Please try again.';
+          if (message == AuthFailure.googleSignInCancelled) return;
+          setState(() => _errorMessage = message);
         },
       );
     });

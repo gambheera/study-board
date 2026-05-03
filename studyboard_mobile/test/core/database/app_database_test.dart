@@ -13,7 +13,7 @@ void main() {
 
   tearDown(() async => db.close());
 
-  test('fresh install creates all 13 required tables', () async {
+  test('fresh install creates all 14 required tables', () async {
     final rows = await db
         .customSelect(
           "SELECT name FROM sqlite_master WHERE type='table' "
@@ -38,6 +38,7 @@ void main() {
         'survey_responses',
         'nudge_events',
         'sessions',
+        'student_subjects',
       ]),
     );
   });

@@ -41,6 +41,64 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:719373400195:android:59f55009460ca2273903b6",
+        "android_client_info": {
+          "package_name": "com.lahiru.studyboard.studyboard_mobile.dev"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "719373400195-924eq6e2bqs4g1dlrpkvptedr0vv0g8u.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA30opVwnux6JVY6fBmIp-3b-oiFvLvSKY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "719373400195-924eq6e2bqs4g1dlrpkvptedr0vv0g8u.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:719373400195:android:59f55009460ca2273903b6",
+        "android_client_info": {
+          "package_name": "com.lahiru.studyboard.studyboard_mobile.stg"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "719373400195-924eq6e2bqs4g1dlrpkvptedr0vv0g8u.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA30opVwnux6JVY6fBmIp-3b-oiFvLvSKY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "719373400195-924eq6e2bqs4g1dlrpkvptedr0vv0g8u.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"

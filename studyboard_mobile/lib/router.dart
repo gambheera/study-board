@@ -1,34 +1,110 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:studyboard_mobile/features/auth/presentation/auth_notifier.dart';
+import 'package:studyboard_mobile/features/auth/presentation/auth_state.dart';
+import 'package:studyboard_mobile/features/auth/presentation/login_screen.dart';
+import 'package:studyboard_mobile/features/auth/presentation/onboarding_screen.dart';
+import 'package:studyboard_mobile/features/auth/presentation/profile_screen.dart';
 import 'package:studyboard_mobile/features/auth/presentation/register_screen.dart';
 import 'package:studyboard_mobile/features/backlog/presentation/backlog_screen.dart';
 import 'package:studyboard_mobile/features/board/presentation/board_screen.dart';
+import 'package:studyboard_mobile/features/board/presentation/content_sync_notifier.dart';
 import 'package:studyboard_mobile/features/dashboard/presentation/dashboard_screen.dart';
+import 'package:studyboard_mobile/features/lesson/presentation/curiosity_screen.dart';
+import 'package:studyboard_mobile/features/lesson/presentation/lesson_content_screen.dart';
+import 'package:studyboard_mobile/features/sessions/presentation/session_tracker_notifier.dart';
+
+class _RouterNotifier extends ChangeNotifier {
+  _RouterNotifier(Ref ref) {
+    ref.listen(authProvider, (_, _) => notifyListeners());
+  }
+}
 
 final goRouterProvider = Provider<GoRouter>((ref) {
+  final notifier = _RouterNotifier(ref);
   final router = GoRouter(
-    // Story 1.8 replaces this with auth-aware redirect using
-    // authStateStreamProvider.
-    initialLocation: '/register',
+    initialLocation: '/login',
+    refreshListenable: notifier,
+    redirect: (context, state) {
+      final authValue = ref.read(authProvider);
+      if (authValue.isLoading) return null;
+      if (authValue.hasError) return '/login';
+
+      final authState = authValue.value;
+      final isLoggedIn =
+          authState?.map(
+            unauthenticated: (_) => false,
+            authenticated: (_) => true,
+          ) ??
+          false;
+
+      final isGoingToLogin = state.matchedLocation == '/login';
+      final isGoingToRegister = state.matchedLocation == '/register';
+      final isGoingToOnboarding = state.matchedLocation == '/onboarding';
+
+      if (!isLoggedIn) {
+        if (!isGoingToLogin) return '/login';
+        return null;
+      }
+
+      final student = authState!.mapOrNull(authenticated: (a) => a.student);
+      final needsOnboarding = student?.district.isEmpty ?? false;
+
+      if (needsOnboarding) {
+        if (!isGoingToOnboarding) return '/onboarding';
+        return null;
+      }
+
+      if (isGoingToLogin || isGoingToRegister || isGoingToOnboarding) {
+        return '/board';
+      }
+      return null;
+    },
     routes: [
+      GoRoute(
+        path: '/login',
+        pageBuilder: (_, _) => const MaterialPage(child: LoginScreen()),
+      ),
       GoRoute(
         path: '/register',
         pageBuilder: (_, _) => const MaterialPage(child: RegisterScreen()),
       ),
       GoRoute(
         path: '/onboarding',
-        // Story 1.9 replaces this placeholder with the real OnboardingScreen.
-        pageBuilder: (_, _) =>
-            const MaterialPage(child: _OnboardingPlaceholder()),
+        pageBuilder: (_, _) => const MaterialPage(child: OnboardingScreen()),
+      ),
+      GoRoute(
+        path: '/profile',
+        pageBuilder: (_, _) => const MaterialPage(child: ProfileScreen()),
+      ),
+      GoRoute(
+        path: '/curiosity/:taskId',
+        pageBuilder: (context, state) {
+          final taskId = state.pathParameters['taskId']!;
+          return MaterialPage(child: CuriosityScreen(taskId: taskId));
+        },
+      ),
+      GoRoute(
+        path: '/lesson/:taskId',
+        pageBuilder: (context, state) {
+          final taskId = state.pathParameters['taskId']!;
+          return MaterialPage(child: LessonContentScreen(taskId: taskId));
+        },
+      ),
+      GoRoute(
+        path: '/quiz/:taskId',
+        // Story 4.1 will replace this stub with the real QuizScreen
+        pageBuilder: (_, _) => const MaterialPage(
+          child: Scaffold(body: Center(child: Text('Quiz coming soon'))),
+        ),
       ),
       ShellRoute(
         builder: (context, state, child) => ScaffoldWithNavBar(child: child),
         routes: [
           GoRoute(
             path: '/board',
-            pageBuilder: (_, _) =>
-                const NoTransitionPage(child: BoardScreen()),
+            pageBuilder: (_, _) => const NoTransitionPage(child: BoardScreen()),
           ),
           GoRoute(
             path: '/dashboard',
@@ -44,17 +120,22 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
-  ref.onDispose(router.dispose);
+  ref
+    ..onDispose(notifier.dispose)
+    ..onDispose(router.dispose);
   return router;
 });
 
-class ScaffoldWithNavBar extends StatelessWidget {
+class ScaffoldWithNavBar extends ConsumerWidget {
   const ScaffoldWithNavBar({required this.child, super.key});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref
+      ..listen(contentSyncProvider, (_, _) {})
+      ..listen(sessionTrackerProvider, (_, _) {});
     return Scaffold(
       body: child,
       bottomNavigationBar: NavigationBar(
@@ -101,13 +182,4 @@ class ScaffoldWithNavBar extends StatelessWidget {
         assert(false, 'Unhandled NavigationBar index: $index');
     }
   }
-}
-
-class _OnboardingPlaceholder extends StatelessWidget {
-  const _OnboardingPlaceholder();
-
-  @override
-  Widget build(BuildContext context) => const Scaffold(
-        body: Center(child: Text('Onboarding — coming in Story 1.9')),
-      );
 }

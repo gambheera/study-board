@@ -5653,6 +5653,239 @@ class SyncErrorLogTableCompanion
   }
 }
 
+class $StudentSubjectsTableTable extends StudentSubjectsTable
+    with TableInfo<$StudentSubjectsTableTable, StudentSubjectsTableData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StudentSubjectsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _studentIdMeta = const VerificationMeta(
+    'studentId',
+  );
+  @override
+  late final GeneratedColumn<String> studentId = GeneratedColumn<String>(
+    'student_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _subjectNameMeta = const VerificationMeta(
+    'subjectName',
+  );
+  @override
+  late final GeneratedColumn<String> subjectName = GeneratedColumn<String>(
+    'subject_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [studentId, subjectName];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'student_subjects';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StudentSubjectsTableData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('student_id')) {
+      context.handle(
+        _studentIdMeta,
+        studentId.isAcceptableOrUnknown(data['student_id']!, _studentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_studentIdMeta);
+    }
+    if (data.containsKey('subject_name')) {
+      context.handle(
+        _subjectNameMeta,
+        subjectName.isAcceptableOrUnknown(
+          data['subject_name']!,
+          _subjectNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_subjectNameMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {studentId, subjectName};
+  @override
+  StudentSubjectsTableData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StudentSubjectsTableData(
+      studentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}student_id'],
+      )!,
+      subjectName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subject_name'],
+      )!,
+    );
+  }
+
+  @override
+  $StudentSubjectsTableTable createAlias(String alias) {
+    return $StudentSubjectsTableTable(attachedDatabase, alias);
+  }
+}
+
+class StudentSubjectsTableData extends DataClass
+    implements Insertable<StudentSubjectsTableData> {
+  final String studentId;
+  final String subjectName;
+  const StudentSubjectsTableData({
+    required this.studentId,
+    required this.subjectName,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['student_id'] = Variable<String>(studentId);
+    map['subject_name'] = Variable<String>(subjectName);
+    return map;
+  }
+
+  StudentSubjectsTableCompanion toCompanion(bool nullToAbsent) {
+    return StudentSubjectsTableCompanion(
+      studentId: Value(studentId),
+      subjectName: Value(subjectName),
+    );
+  }
+
+  factory StudentSubjectsTableData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StudentSubjectsTableData(
+      studentId: serializer.fromJson<String>(json['studentId']),
+      subjectName: serializer.fromJson<String>(json['subjectName']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'studentId': serializer.toJson<String>(studentId),
+      'subjectName': serializer.toJson<String>(subjectName),
+    };
+  }
+
+  StudentSubjectsTableData copyWith({String? studentId, String? subjectName}) =>
+      StudentSubjectsTableData(
+        studentId: studentId ?? this.studentId,
+        subjectName: subjectName ?? this.subjectName,
+      );
+  StudentSubjectsTableData copyWithCompanion(
+    StudentSubjectsTableCompanion data,
+  ) {
+    return StudentSubjectsTableData(
+      studentId: data.studentId.present ? data.studentId.value : this.studentId,
+      subjectName: data.subjectName.present
+          ? data.subjectName.value
+          : this.subjectName,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StudentSubjectsTableData(')
+          ..write('studentId: $studentId, ')
+          ..write('subjectName: $subjectName')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(studentId, subjectName);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StudentSubjectsTableData &&
+          other.studentId == this.studentId &&
+          other.subjectName == this.subjectName);
+}
+
+class StudentSubjectsTableCompanion
+    extends UpdateCompanion<StudentSubjectsTableData> {
+  final Value<String> studentId;
+  final Value<String> subjectName;
+  final Value<int> rowid;
+  const StudentSubjectsTableCompanion({
+    this.studentId = const Value.absent(),
+    this.subjectName = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  StudentSubjectsTableCompanion.insert({
+    required String studentId,
+    required String subjectName,
+    this.rowid = const Value.absent(),
+  }) : studentId = Value(studentId),
+       subjectName = Value(subjectName);
+  static Insertable<StudentSubjectsTableData> custom({
+    Expression<String>? studentId,
+    Expression<String>? subjectName,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (studentId != null) 'student_id': studentId,
+      if (subjectName != null) 'subject_name': subjectName,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  StudentSubjectsTableCompanion copyWith({
+    Value<String>? studentId,
+    Value<String>? subjectName,
+    Value<int>? rowid,
+  }) {
+    return StudentSubjectsTableCompanion(
+      studentId: studentId ?? this.studentId,
+      subjectName: subjectName ?? this.subjectName,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (studentId.present) {
+      map['student_id'] = Variable<String>(studentId.value);
+    }
+    if (subjectName.present) {
+      map['subject_name'] = Variable<String>(subjectName.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StudentSubjectsTableCompanion(')
+          ..write('studentId: $studentId, ')
+          ..write('subjectName: $subjectName, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5678,6 +5911,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SyncQueueTableTable syncQueueTable = $SyncQueueTableTable(this);
   late final $SyncErrorLogTableTable syncErrorLogTable =
       $SyncErrorLogTableTable(this);
+  late final $StudentSubjectsTableTable studentSubjectsTable =
+      $StudentSubjectsTableTable(this);
   late final TaskDao taskDao = TaskDao(this as AppDatabase);
   late final QuizDao quizDao = QuizDao(this as AppDatabase);
   late final LessonDao lessonDao = LessonDao(this as AppDatabase);
@@ -5685,6 +5920,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final SurveyDao surveyDao = SurveyDao(this as AppDatabase);
   late final DashboardDao dashboardDao = DashboardDao(this as AppDatabase);
   late final ContentDao contentDao = ContentDao(this as AppDatabase);
+  late final SessionDao sessionDao = SessionDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5703,6 +5939,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     sessionsTable,
     syncQueueTable,
     syncErrorLogTable,
+    studentSubjectsTable,
   ];
 }
 
@@ -8791,6 +9028,167 @@ typedef $$SyncErrorLogTableTableProcessedTableManager =
       SyncErrorLogTableData,
       PrefetchHooks Function()
     >;
+typedef $$StudentSubjectsTableTableCreateCompanionBuilder =
+    StudentSubjectsTableCompanion Function({
+      required String studentId,
+      required String subjectName,
+      Value<int> rowid,
+    });
+typedef $$StudentSubjectsTableTableUpdateCompanionBuilder =
+    StudentSubjectsTableCompanion Function({
+      Value<String> studentId,
+      Value<String> subjectName,
+      Value<int> rowid,
+    });
+
+class $$StudentSubjectsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $StudentSubjectsTableTable> {
+  $$StudentSubjectsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get studentId => $composableBuilder(
+    column: $table.studentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subjectName => $composableBuilder(
+    column: $table.subjectName,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$StudentSubjectsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $StudentSubjectsTableTable> {
+  $$StudentSubjectsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get studentId => $composableBuilder(
+    column: $table.studentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get subjectName => $composableBuilder(
+    column: $table.subjectName,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$StudentSubjectsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $StudentSubjectsTableTable> {
+  $$StudentSubjectsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get studentId =>
+      $composableBuilder(column: $table.studentId, builder: (column) => column);
+
+  GeneratedColumn<String> get subjectName => $composableBuilder(
+    column: $table.subjectName,
+    builder: (column) => column,
+  );
+}
+
+class $$StudentSubjectsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $StudentSubjectsTableTable,
+          StudentSubjectsTableData,
+          $$StudentSubjectsTableTableFilterComposer,
+          $$StudentSubjectsTableTableOrderingComposer,
+          $$StudentSubjectsTableTableAnnotationComposer,
+          $$StudentSubjectsTableTableCreateCompanionBuilder,
+          $$StudentSubjectsTableTableUpdateCompanionBuilder,
+          (
+            StudentSubjectsTableData,
+            BaseReferences<
+              _$AppDatabase,
+              $StudentSubjectsTableTable,
+              StudentSubjectsTableData
+            >,
+          ),
+          StudentSubjectsTableData,
+          PrefetchHooks Function()
+        > {
+  $$StudentSubjectsTableTableTableManager(
+    _$AppDatabase db,
+    $StudentSubjectsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StudentSubjectsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StudentSubjectsTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$StudentSubjectsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> studentId = const Value.absent(),
+                Value<String> subjectName = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => StudentSubjectsTableCompanion(
+                studentId: studentId,
+                subjectName: subjectName,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String studentId,
+                required String subjectName,
+                Value<int> rowid = const Value.absent(),
+              }) => StudentSubjectsTableCompanion.insert(
+                studentId: studentId,
+                subjectName: subjectName,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$StudentSubjectsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $StudentSubjectsTableTable,
+      StudentSubjectsTableData,
+      $$StudentSubjectsTableTableFilterComposer,
+      $$StudentSubjectsTableTableOrderingComposer,
+      $$StudentSubjectsTableTableAnnotationComposer,
+      $$StudentSubjectsTableTableCreateCompanionBuilder,
+      $$StudentSubjectsTableTableUpdateCompanionBuilder,
+      (
+        StudentSubjectsTableData,
+        BaseReferences<
+          _$AppDatabase,
+          $StudentSubjectsTableTable,
+          StudentSubjectsTableData
+        >,
+      ),
+      StudentSubjectsTableData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -8824,4 +9222,6 @@ class $AppDatabaseManager {
       $$SyncQueueTableTableTableManager(_db, _db.syncQueueTable);
   $$SyncErrorLogTableTableTableManager get syncErrorLogTable =>
       $$SyncErrorLogTableTableTableManager(_db, _db.syncErrorLogTable);
+  $$StudentSubjectsTableTableTableManager get studentSubjectsTable =>
+      $$StudentSubjectsTableTableTableManager(_db, _db.studentSubjectsTable);
 }

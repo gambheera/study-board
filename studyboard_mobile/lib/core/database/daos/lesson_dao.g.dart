@@ -10,6 +10,7 @@ mixin _$LessonDaoMixin on DatabaseAccessor<AppDatabase> {
   $LessonTasksTableTable get lessonTasksTable =>
       attachedDatabase.lessonTasksTable;
   $SyncQueueTableTable get syncQueueTable => attachedDatabase.syncQueueTable;
+  $TopicsTableTable get topicsTable => attachedDatabase.topicsTable;
   LessonDaoManager get managers => LessonDaoManager(this);
 }
 
@@ -33,4 +34,6 @@ class LessonDaoManager {
         _db.attachedDatabase,
         _db.syncQueueTable,
       );
+  $$TopicsTableTableTableManager get topicsTable =>
+      $$TopicsTableTableTableManager(_db.attachedDatabase, _db.topicsTable);
 }

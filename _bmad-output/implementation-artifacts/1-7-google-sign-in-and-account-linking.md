@@ -1,6 +1,6 @@
 # Story 1.7: Google Sign-In & Account Linking
 
-Status: review
+Status: done
 
 ## Story
 
@@ -518,6 +518,8 @@ claude-sonnet-4-6
 - google_sign_in v7 breaking API change: `GoogleSignIn` is now a singleton (`GoogleSignIn.instance`), constructor is private. `signIn()` replaced by `authenticate()` which throws `GoogleSignInException` instead of returning null on cancel. `authentication` is now a sync getter (not Future). `GoogleSignInAuthentication` no longer has `accessToken` — only `idToken`. Adapted implementation with a `GoogleSignInService` interface wrapper for testability.
 - `GoogleSignIn.instance.initialize(serverClientId: ...)` must be called at app startup; added to `bootstrap.dart` after Supabase init.
 - Mocktail "cannot call when within a stub response": `_mockUser()` (which calls `when()`) must not be called inside `thenAnswer` callbacks or as arguments after a `when()` call has started recording. Fixed by pre-creating mock users before any `when()` calls in each test.
+- Review patch "remove unused `import 'dart:io'`" was incorrectly applied: `signUpWithEmail()` uses `SocketException` from `dart:io`, so the import is required. Re-added; compile error resolved.
+- `final String? idToken` captured inside `trySupabase` closure caused "can't assign String? to String" error — Dart type promotion does not cross closure boundaries. Fixed by assigning to `final resolvedIdToken = idToken` (non-nullable local, inferred after null-check) before the closure.
 
 ### Completion Notes List
 
@@ -527,6 +529,9 @@ claude-sonnet-4-6
 - Added `GoogleSignIn.instance.initialize(serverClientId: AppConfig.googleWebClientId)` to `bootstrap.dart`.
 - Task 7 (Android OAuth prerequisites) requires manual developer steps: configure Google Cloud Console, set real `googleWebClientId` in `AppConfig`, enable Google provider in Supabase Dashboard.
 - All 74 tests pass; `flutter analyze` → 0 issues.
+- Applied all [Patch] review findings: try/catch on `authentication.idToken`, best-effort signOut on DAO failure, `notificationsEnabled` preservation, cancellation filtering in RegisterScreen, error clearing on loading, GoogleSignInButton spinner, 2 new test cases.
+- Re-added `import 'dart:io'` (incorrectly removed by review patch — needed by `signUpWithEmail`'s `SocketException` handler). Fixed `idToken` closure-capture type error. All 76 tests pass; `flutter analyze` → 0 issues.
+- `android/app/google-services.json` project name "nursing-log-app" accepted as-is — correct Firebase project, renaming deferred by developer decision.
 
 ### File List
 
@@ -547,23 +552,64 @@ test/features/auth/presentation/auth_notifier_test.dart (modified)
 ## Change Log
 
 - Implemented Story 1.7 Google Sign-In & Account Linking — adapted for google_sign_in v7 singleton API; added GoogleSignInService interface, AppConfig, bootstrap initialization, AuthState.isNewStudent, GoogleSignInButton widget, routing fix in RegisterScreen, 6 new tests (Date: 2026-04-19)
+- Applied code review [Patch] findings — best-effort signOut on DAO failure, idToken try/catch, notificationsEnabled preservation, cancellation no-op, error clear on loading, GoogleSignInButton spinner, 2 new tests; fixed dart:io import regression and idToken closure-capture type error; 76 tests pass, 0 analyze issues (Date: 2026-04-24)
 
 ### Review Findings
 
-- [ ] [Review][Decision] `google-services.json` is from wrong Firebase project ("nursing-log-app") with no Android OAuth client (`client_type: 1`) — blocks native Google Sign-In on Android (AC5). Only a web client (`client_type: 3`) and an iOS client are present. Fix: run `flutterfire configure` for the StudyBoard Firebase project to regenerate this file with the correct project and Android SHA-1 entry. [android/app/google-services.json]
-- [ ] [Review][Patch] Add startup assertion for placeholder `googleWebClientId` to fail fast in debug builds [lib/core/config/app_config.dart]
-- [ ] [Review][Patch] Wrap `googleUser.authentication.idToken` access in try/catch — it is a synchronous getter that can throw a `PlatformException` (e.g. revoked token), currently called outside any guard [lib/features/auth/data/auth_repository_impl.dart:148]
-- [ ] [Review][Patch] `notificationsEnabled: const Value(true)` in `upsertStudent` hardcodes `true`, silently overwriting existing preference for partial-record students (`existing != null && district.isEmpty`). Use `existing?.notificationsEnabled ?? true` [lib/features/auth/data/auth_repository_impl.dart:183]
-- [ ] [Review][Patch] Drift write failure after successful Supabase sign-in leaves user with a live remote session but no local row. Separate `upsertStudent`/`updateLastActiveAt` DAO calls into their own try/catch (returning `DatabaseFailure`) outside `trySupabase`, matching the pattern used in `signUpWithEmail` [lib/features/auth/data/auth_repository_impl.dart:157]
-- [ ] [Review][Patch] User cancellation (`AuthFailure('Google Sign-In was cancelled.')`) surfaces as a visible error banner on `RegisterScreen` via `ref.listen`. Filter in the error branch: treat cancellation message as a no-op instead of showing it to the user [lib/features/auth/presentation/register_screen.dart:125]
-- [ ] [Review][Patch] Remove unused `import 'dart:io'` — breaks Web/WASM targets and is dead code [lib/features/auth/data/auth_repository_impl.dart:1]
-- [ ] [Review][Patch] Add test case: `getStudent()` returns a row with `district: ''` → `isNewStudent: true`, `upsertStudent()` called, student routed to onboarding. The current test only covers `getStudent()` returning `null` [test/features/auth/data/auth_repository_impl_test.dart]
-- [ ] [Review][Patch] `GoogleSignInButton` disables on load but shows no spinner — inconsistent with the `FilledButton` on the same screen which shows a `CircularProgressIndicator`. Add visual loading feedback [lib/features/auth/presentation/widgets/google_sign_in_button.dart]
-- [ ] [Review][Patch] `_errorMessage` is not cleared when a new Google sign-in attempt begins — stale error from a prior failed attempt stays visible during the loading phase. Clear `_errorMessage` in the `AsyncLoading` branch of `ref.listen` (or call `setState` in the button's `onPressed`) [lib/features/auth/presentation/register_screen.dart]
-- [ ] [Review][Patch] Add test case: when `googleUser.authentication.idToken` is `null`, `signInWithGoogle()` returns `Left(AuthFailure('Google authentication failed...'))` [test/features/auth/data/auth_repository_impl_test.dart]
+- [x] [Review][Decision] `google-services.json` project name "nursing-log-app" is the correct Firebase project — name mismatch is cosmetic only; developer will rename project later. Accepted as-is. [android/app/google-services.json]
+- [x] [Review][Patch] Add startup assertion for placeholder `googleWebClientId` to fail fast in debug builds [lib/core/config/app_config.dart]
+- [x] [Review][Patch] Wrap `googleUser.authentication.idToken` access in try/catch — it is a synchronous getter that can throw a `PlatformException` (e.g. revoked token), currently called outside any guard [lib/features/auth/data/auth_repository_impl.dart:148]
+- [x] [Review][Patch] `notificationsEnabled: const Value(true)` in `upsertStudent` hardcodes `true`, silently overwriting existing preference for partial-record students (`existing != null && district.isEmpty`). Use `existing?.notificationsEnabled ?? true` [lib/features/auth/data/auth_repository_impl.dart:183]
+- [x] [Review][Patch] Drift write failure after successful Supabase sign-in leaves user with a live remote session but no local row. Separate `upsertStudent`/`updateLastActiveAt` DAO calls into their own try/catch with best-effort signOut to prevent orphaned session [lib/features/auth/data/auth_repository_impl.dart:157]
+- [x] [Review][Patch] User cancellation (`AuthFailure('Google Sign-In was cancelled.')`) surfaces as a visible error banner on `RegisterScreen` via `ref.listen`. Filter in the error branch: treat cancellation message as a no-op instead of showing it to the user [lib/features/auth/presentation/register_screen.dart:125]
+- [x] [Review][Patch] Remove unused `import 'dart:io'` — breaks Web/WASM targets and is dead code [lib/features/auth/data/auth_repository_impl.dart:1]
+- [x] [Review][Patch] Add test case: `getStudent()` returns a row with `district: ''` → `isNewStudent: true`, `upsertStudent()` called, student routed to onboarding. The current test only covers `getStudent()` returning `null` [test/features/auth/data/auth_repository_impl_test.dart]
+- [x] [Review][Patch] `GoogleSignInButton` disables on load but shows no spinner — inconsistent with the `FilledButton` on the same screen which shows a `CircularProgressIndicator`. Add visual loading feedback [lib/features/auth/presentation/widgets/google_sign_in_button.dart]
+- [x] [Review][Patch] `_errorMessage` is not cleared when a new Google sign-in attempt begins — stale error from a prior failed attempt stays visible during the loading phase. Clear `_errorMessage` in the `AsyncLoading` branch of `ref.listen` [lib/features/auth/presentation/register_screen.dart]
+- [x] [Review][Patch] Add test case: when `googleUser.authentication.idToken` is `null`, `signInWithGoogle()` returns `Left(AuthFailure('Google authentication failed...'))` [test/features/auth/data/auth_repository_impl_test.dart]
 - [x] [Review][Defer] Race condition on rapid double-tap: second tap can call `authenticate()` before `isLoading` state propagates to the button — guard exists in notifier but UI rebuild lags one microtask [lib/features/auth/presentation/auth_notifier.dart:36] — deferred, pre-existing pattern across all notifier methods
 - [x] [Review][Defer] `AuthNotifier.build()` always returns `unauthenticated()` — no session restore on cold start — deferred, pre-existing (Story 1.8 scope, tracked as DEF3)
 - [x] [Review][Defer] `authStateStreamProvider` uses `ref.watch` on a `keepAlive` repository — safe in practice but could re-subscribe on provider rebuild; prefer `ref.read` inside stream provider [lib/features/auth/data/auth_provider.dart:23] — deferred, pre-existing
 - [x] [Review][Defer] `updateLastActiveAt` return value (rowcount) discarded — silent no-op if row was deleted between `getStudent()` and the update call (TOCTOU) [lib/features/auth/data/auth_repository_impl.dart:203] — deferred, low-severity
 - [x] [Review][Defer] `googleUser.displayName ?? googleUser.email` fallback — enterprise/SSO accounts can have empty display name AND empty email, producing a Drift row with `name: ''` [lib/features/auth/data/auth_repository_impl.dart:175] — deferred, extremely unlikely with 10 known students
 - [x] [Review][Defer] On iOS, OS-terminated `SFSafariViewController` throws a non-`GoogleSignInException` that is caught by `on Object` and shown as a generic error instead of a no-op [lib/features/auth/data/auth_repository_impl.dart:141] — deferred, iOS-specific edge case
+
+#### Round 2 — 2026-04-25
+
+- [x] [Review][Decision] Story 1.8 code mixed into Story 1.7 diff — `signInWithEmailPassword` (repository interface, impl, notifier), `signOut` (notifier), `deleteStudent` (StudentDao), `getCurrentUser` rewrite (Drift-only read), session restore in `build()`, `_handleAuthStateChange`, `sessionExpired` field on `AuthState.unauthenticated`, `LoginScreen` created, router changes, and Story 1.8 test groups — all added to Story 1.7 files. Decision: (a) accept as combined 1.7+1.8 delivery, (b) split 1.8 code into a separate commit before marking 1.7 done, or (c) accept the mixed delivery but carry the bugs below as Story 1.8 patches.
+
+- [x] [Review][Patch] Cancellation detection in `RegisterScreen` uses fragile string equality `message == 'Google Sign-In was cancelled.'` — replace with a constant or typed `AuthFailure` subclass to avoid silent breakage on copy/i18n changes [lib/features/auth/presentation/register_screen.dart:135]
+
+- [x] [Review][Patch] `signInWithEmailPassword` — `updateLastActiveAt` called before `getStudent` (silent no-op when row absent); no `upsertStudent` for absent Drift row (user appears unauthenticated on every cold start after fresh install); no compensating `signOut()` on Drift failure (orphaned Supabase session) [lib/features/auth/data/auth_repository_impl.dart:126–139]
+
+- [x] [Review][Patch] `getCurrentUser` reads only Drift — user with valid Supabase JWT but no local Drift row (fresh install / app-data wipe) returns `Right(null)`, causing session restore to silently fail [lib/features/auth/data/auth_repository_impl.dart:80–92]
+
+- [x] [Review][Patch] `_handleAuthStateChange` `signedIn`/`tokenRefreshed` branch silently discards all `Left` failures via `result.fold((_) {}, ...)`, and overwrites `AsyncError` state with `authenticated` if a token-refresh event arrives after a failed login attempt [lib/features/auth/presentation/auth_notifier.dart:30–51]
+
+- [x] [Review][Patch] `signInWithEmailPassword` `mapLeft` only remaps `AuthFailure`; a `DatabaseFailure` from Drift inside `trySupabase` passes through unchanged, surfacing raw Dart exception text in the login screen SnackBar [lib/features/auth/data/auth_repository_impl.dart:64–71]
+
+- [x] [Review][Defer] `_explicitSignOut` race — `signedOut` stream event may arrive while `signOut()` repository call is in-flight, consuming the flag before it is needed — deferred, Story 1.8 [lib/features/auth/presentation/auth_notifier.dart:23–25]
+
+- [x] [Review][Defer] `ref.listen(authStateStreamProvider)` inside `build()` without `ref.onDispose` — programmatic `ref.invalidate` would stack duplicate listeners — deferred, Story 1.8; `keepAlive: true` prevents in normal usage [lib/features/auth/presentation/auth_notifier.dart:287–290]
+
+- [x] [Review][Defer] `state.value` is `null` during `AsyncLoading` — `tokenRefreshed` event fired while `signInWithGoogle()` in-flight evaluates as `currentlyUnauthenticated: true`, potentially overwriting loading state — deferred, Story 1.8 [lib/features/auth/presentation/auth_notifier.dart:44]
+
+- [x] [Review][Defer] `signOut()` uses default Supabase `scope: local` — remote session on other devices persists; if user re-logs on a fresh device, Drift row was hard-deleted, losing district/school profile data — deferred, design decision [lib/features/auth/data/auth_repository_impl.dart:183–192]
+
+- [x] [Review][Defer] `sessionExpired` snackbar check in `LoginScreen.initState` reads `authProvider.value` via `addPostFrameCallback`; if `getCurrentUser()` hasn't resolved yet, `.value` is `null` and the snackbar is silently skipped — deferred, Story 1.8 [lib/features/auth/presentation/login_screen.dart:51–66]
+
+- [x] [Review][Defer] `signOut()` retry — `currentUser` may be cleared by a first failed attempt; second call finds `userId == null`, skips `deleteStudent`, leaving a stale Drift row — deferred, Story 1.8, low severity [lib/features/auth/data/auth_repository_impl.dart:102–108]
+
+- [x] [Review][Defer] No UI lock on protected routes during sign-out — user can trigger navigation or mutations while sign-out is in-flight — deferred, Story 1.8, design choice [lib/features/auth/presentation/auth_notifier.dart:115–127]
+
+- [x] [Review][Defer] `deleteStudent` is a hard (physical) delete with no surrounding `transaction()` and no `syncQueueTable` entry — inconsistent with other destructive DAO ops — deferred, Story 1.8 [lib/core/database/daos/student_dao.dart:62–63]
+
+- [x] [Review][Defer] `signedIn`/`tokenRefreshed` stream event paths in `_handleAuthStateChange` have zero test coverage — deferred, Story 1.8 [test/features/auth/presentation/auth_notifier_test.dart]
+
+- [x] [Review][Defer] `updateLastActiveAt`-throws path in `signInWithEmailPassword` not tested — deferred, Story 1.8 [test/features/auth/data/auth_repository_impl_test.dart]
+
+- [x] [Review][Defer] `displayName ?? email` both empty → blank `name` stored in Drift with no recovery path — deferred, pre-existing (spec: "extremely unlikely with 10 known students") [lib/features/auth/data/auth_repository_impl.dart:172]
+
+- [x] [Review][Defer] Stream test `Completer` timeout of 5 seconds produces opaque `TimeoutException` instead of a meaningful assertion failure — deferred, minor [test/features/auth/presentation/auth_notifier_test.dart:912]
+
+- [x] [Review][Defer] `signOut()` Drift `deleteStudent` failure after successful Supabase `signOut()` — `trySupabase` returns `Left(NetworkFailure)` but the Supabase session is already cleared — deferred, Story 1.8 [lib/features/auth/data/auth_repository_impl.dart:100–108]

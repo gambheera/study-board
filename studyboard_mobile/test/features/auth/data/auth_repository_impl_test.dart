@@ -97,9 +97,11 @@ void main() {
       expect(result, const Right<Failure, Student?>(null));
     });
 
-    test('returns Right(Student) when user is authenticated', () async {
+    test('returns Right(Student) reading from Drift (DEF1 fix)', () async {
       final fakeUser = _mockUser();
       when(() => mockAuth.currentUser).thenReturn(fakeUser);
+      when(() => mockStudentDao.getStudent(any()))
+          .thenAnswer((_) async => _fakeStudentsTableData());
 
       final result = await repository.getCurrentUser();
 
@@ -110,24 +112,58 @@ void main() {
           expect(student, isNotNull);
           expect(student!.id, equals('user-123'));
           expect(student.email, equals('test@example.com'));
+          expect(student.district, equals('Colombo'));
         },
       );
+      verify(() => mockStudentDao.getStudent('user-123')).called(1);
+    });
+
+    test('creates minimal Drift row and returns Right(Student) when row absent',
+        () async {
+      final fakeUser = _mockUser();
+      when(() => mockAuth.currentUser).thenReturn(fakeUser);
+      when(() => mockStudentDao.getStudent(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockStudentDao.upsertStudent(any()))
+          .thenAnswer((_) async {});
+
+      final result = await repository.getCurrentUser();
+
+      expect(result.isRight(), isTrue);
+      result.fold(
+        (_) => fail('Expected Right'),
+        (student) {
+          expect(student, isNotNull);
+          expect(student!.id, equals('user-123'));
+          expect(student.district, isEmpty);
+        },
+      );
+      verify(() => mockStudentDao.upsertStudent(any())).called(1);
     });
   });
 
   group('AuthRepositoryImpl.signOut', () {
-    test('calls auth.signOut and returns Right(unit)', () async {
+    test('calls auth.signOut and deleteStudent, returns Right(unit)', () async {
+      final fakeUser = _mockUser();
+      when(() => mockAuth.currentUser).thenReturn(fakeUser);
       when(() => mockAuth.signOut(scope: any(named: 'scope')))
+          .thenAnswer((_) async {});
+      when(() => mockStudentDao.deleteStudent(any()))
           .thenAnswer((_) async {});
 
       final result = await repository.signOut();
 
       expect(result, const Right<Failure, Unit>(unit));
       verify(() => mockAuth.signOut(scope: any(named: 'scope'))).called(1);
+      verify(() => mockStudentDao.deleteStudent('user-123')).called(1);
     });
 
     test('returns Left(AuthFailure) when signOut throws AuthException',
         () async {
+      // Pre-create user BEFORE any when() call (mocktail forbids when() inside
+      // the argument evaluation of another when().thenReturn(...) chain).
+      final mockUser = _mockUser();
+      when(() => mockAuth.currentUser).thenReturn(mockUser);
       when(() => mockAuth.signOut(scope: any(named: 'scope')))
           .thenThrow(const AuthException('session expired'));
 
@@ -138,6 +174,16 @@ void main() {
         (f) => expect(f, isA<AuthFailure>()),
         (_) => fail('Expected Left'),
       );
+    });
+
+    test('skips deleteStudent when no current user', () async {
+      when(() => mockAuth.currentUser).thenReturn(null);
+      when(() => mockAuth.signOut(scope: any(named: 'scope')))
+          .thenAnswer((_) async {});
+
+      await repository.signOut();
+
+      verifyNever(() => mockStudentDao.deleteStudent(any()));
     });
   });
 
@@ -151,6 +197,94 @@ void main() {
 
       expect(stream, isA<Stream<AuthState>>());
       unawaited(controller.close());
+    });
+  });
+
+  group('AuthRepositoryImpl.signInWithEmailPassword', () {
+    test('success with Drift row → Right(Student) with full profile', () async {
+      final mockUser = _mockUser();
+      when(
+        () => mockAuth.signInWithPassword(
+          email: any(named: 'email'),
+          password: any(named: 'password'),
+        ),
+      ).thenAnswer(
+        (_) async => AuthResponse(user: mockUser, session: _MockSession()),
+      );
+      when(() => mockStudentDao.updateLastActiveAt(any(), any()))
+          .thenAnswer((_) async {});
+      when(() => mockStudentDao.getStudent(any()))
+          .thenAnswer((_) async => _fakeStudentsTableData());
+
+      final result = await repository.signInWithEmailPassword(
+        email: 'test@example.com',
+        password: 'pass1234',
+      );
+
+      expect(result.isRight(), isTrue);
+      result.fold(
+        (_) => fail('Expected Right'),
+        (student) {
+          expect(student.id, equals('user-123'));
+          expect(student.district, equals('Colombo'));
+        },
+      );
+    });
+
+    test('wrong credentials → Left(AuthFailure) with safe message', () async {
+      when(
+        () => mockAuth.signInWithPassword(
+          email: any(named: 'email'),
+          password: any(named: 'password'),
+        ),
+      ).thenThrow(const AuthException('Invalid login credentials'));
+
+      final result = await repository.signInWithEmailPassword(
+        email: 'test@example.com',
+        password: 'wrong',
+      );
+
+      expect(result.isLeft(), isTrue);
+      result.fold(
+        (f) {
+          expect(f, isA<AuthFailure>());
+          expect(f.message, equals('Incorrect email or password'));
+        },
+        (_) => fail('Expected Left'),
+      );
+    });
+
+    test('Drift row absent → upsertStudent called, Right(Student) returned',
+        () async {
+      final mockUser = _mockUser();
+      when(
+        () => mockAuth.signInWithPassword(
+          email: any(named: 'email'),
+          password: any(named: 'password'),
+        ),
+      ).thenAnswer(
+        (_) async => AuthResponse(user: mockUser, session: _MockSession()),
+      );
+      when(() => mockStudentDao.getStudent(any()))
+          .thenAnswer((_) async => null);
+      when(() => mockStudentDao.upsertStudent(any()))
+          .thenAnswer((_) async {});
+
+      final result = await repository.signInWithEmailPassword(
+        email: 'test@example.com',
+        password: 'pass1234',
+      );
+
+      expect(result.isRight(), isTrue);
+      result.fold(
+        (_) => fail('Expected Right'),
+        (student) {
+          expect(student.id, equals('user-123'));
+          expect(student.district, isEmpty);
+        },
+      );
+      verify(() => mockStudentDao.upsertStudent(any())).called(1);
+      verifyNever(() => mockStudentDao.updateLastActiveAt(any(), any()));
     });
   });
 
@@ -249,6 +383,133 @@ void main() {
         (_) => fail('Expected Left'),
       );
       verifyNever(() => mockStudentDao.upsertStudent(any()));
+    });
+  });
+
+  group('AuthRepositoryImpl.updateProfile', () {
+    test('success → Right(Student) with updated district', () async {
+      when(
+        () => mockStudentDao.updateProfileWithSubjects(
+          any(),
+          district: any(named: 'district'),
+          school: any(named: 'school'),
+          subjectNames: any(named: 'subjectNames'),
+        ),
+      ).thenAnswer((_) async {});
+      when(() => mockStudentDao.getStudent(any()))
+          .thenAnswer((_) async => _fakeStudentsTableData());
+
+      final result = await repository.updateProfile(
+        studentId: 'user-123',
+        district: 'Colombo',
+        school: 'Royal College',
+        subjectNames: ['Chemistry'],
+      );
+
+      expect(result.isRight(), isTrue);
+      result.fold(
+        (_) => fail('Expected Right'),
+        (student) => expect(student.district, equals('Colombo')),
+      );
+    });
+
+    test('updateProfileWithSubjects throws → Left(DatabaseFailure)', () async {
+      when(
+        () => mockStudentDao.updateProfileWithSubjects(
+          any(),
+          district: any(named: 'district'),
+          school: any(named: 'school'),
+          subjectNames: any(named: 'subjectNames'),
+        ),
+      ).thenThrow(Exception('DB error'));
+
+      final result = await repository.updateProfile(
+        studentId: 'user-123',
+        district: 'Colombo',
+        school: 'Royal College',
+        subjectNames: ['Chemistry'],
+      );
+
+      expect(result.isLeft(), isTrue);
+      result.fold(
+        (f) => expect(f, isA<DatabaseFailure>()),
+        (_) => fail('Expected Left'),
+      );
+    });
+
+    test('updateFcmToken delegates to studentDao', () async {
+      when(() => mockStudentDao.updateFcmToken(any(), any()))
+          .thenAnswer((_) async {});
+
+      final result =
+          await repository.updateFcmToken('user-123', 'token-abc');
+
+      expect(result.isRight(), isTrue);
+      verify(() => mockStudentDao.updateFcmToken('user-123', 'token-abc'))
+          .called(1);
+    });
+  });
+
+  group('AuthRepositoryImpl.editProfile', () {
+    test('success → Right(Student) with updated name and district', () async {
+      when(
+        () => mockStudentDao.updateStudentProfile(
+          any(),
+          name: any(named: 'name'),
+          district: any(named: 'district'),
+          school: any(named: 'school'),
+        ),
+      ).thenAnswer((_) async {});
+      when(() => mockStudentDao.getStudent(any()))
+          .thenAnswer((_) async => _fakeStudentsTableData(name: 'New Name'));
+
+      final result = await repository.editProfile(
+        studentId: 'user-123',
+        name: 'New Name',
+        district: 'Colombo',
+        school: 'Royal College',
+      );
+
+      expect(result.isRight(), isTrue);
+      result.fold(
+        (_) => fail('Expected Right'),
+        (student) {
+          expect(student.name, equals('New Name'));
+          expect(student.district, equals('Colombo'));
+        },
+      );
+      verify(
+        () => mockStudentDao.updateStudentProfile(
+          'user-123',
+          name: 'New Name',
+          district: 'Colombo',
+          school: 'Royal College',
+        ),
+      ).called(1);
+    });
+
+    test('DAO throws → Left(DatabaseFailure)', () async {
+      when(
+        () => mockStudentDao.updateStudentProfile(
+          any(),
+          name: any(named: 'name'),
+          district: any(named: 'district'),
+          school: any(named: 'school'),
+        ),
+      ).thenThrow(Exception('DB error'));
+
+      final result = await repository.editProfile(
+        studentId: 'user-123',
+        name: 'New Name',
+        district: 'Colombo',
+        school: 'Royal College',
+      );
+
+      expect(result.isLeft(), isTrue);
+      result.fold(
+        (f) => expect(f, isA<DatabaseFailure>()),
+        (_) => fail('Expected Left'),
+      );
     });
   });
 
@@ -373,6 +634,53 @@ void main() {
         (_) => fail('Expected Left'),
       );
     });
+
+    test(
+        'partial-record student (district empty) → isNewStudent: true, '
+        'upsertStudent called, notificationsEnabled preserved', () async {
+      final mockUser = _mockUser();
+      final partialRecord = _fakeStudentsTableData(district: '');
+      when(() => mockGoogleSignIn.authenticate())
+          .thenAnswer((_) async => mockAccount);
+      when(() => mockAuth.currentUser).thenReturn(mockUser);
+      when(() => mockStudentDao.getStudent(any()))
+          .thenAnswer((_) async => partialRecord);
+      when(() => mockStudentDao.upsertStudent(any()))
+          .thenAnswer((_) async {});
+
+      final result = await repository.signInWithGoogle();
+
+      expect(result.isRight(), isTrue);
+      result.fold(
+        (_) => fail('Expected Right'),
+        (r) => expect(r.isNewStudent, isTrue),
+      );
+      verify(() => mockStudentDao.upsertStudent(any())).called(1);
+      verifyNever(() => mockStudentDao.updateLastActiveAt(any(), any()));
+    });
+
+    test('idToken is null (misconfigured serverClientId) → Left(AuthFailure)',
+        () async {
+      final noTokenAccount = _MockGoogleSignInAccount();
+      when(() => noTokenAccount.displayName).thenReturn('Test User');
+      when(() => noTokenAccount.email).thenReturn('test@example.com');
+      when(() => noTokenAccount.authentication).thenReturn(
+        const GoogleSignInAuthentication(idToken: null),
+      );
+      when(() => mockGoogleSignIn.authenticate())
+          .thenAnswer((_) async => noTokenAccount);
+
+      final result = await repository.signInWithGoogle();
+
+      expect(result.isLeft(), isTrue);
+      result.fold(
+        (f) {
+          expect(f, isA<AuthFailure>());
+          expect(f.message, contains('app configuration'));
+        },
+        (_) => fail('Expected Left'),
+      );
+    });
   });
 }
 
@@ -384,16 +692,21 @@ User _mockUser() {
   final user = _MockUser();
   when(() => user.id).thenReturn('user-123');
   when(() => user.email).thenReturn('test@example.com');
+  when(() => user.userMetadata).thenReturn({'name': 'Test User'});
   when(() => user.lastSignInAt).thenReturn('2026-04-18T00:00:00.000Z');
   when(() => user.createdAt).thenReturn('2026-04-18T00:00:00.000Z');
   return user;
 }
 
-StudentsTableData _fakeStudentsTableData() => const StudentsTableData(
+StudentsTableData _fakeStudentsTableData({
+  String district = 'Colombo',
+  String name = 'Test User',
+}) =>
+    StudentsTableData(
       id: 'user-123',
-      name: 'Test User',
+      name: name,
       email: 'test@example.com',
-      district: 'Colombo',
+      district: district,
       school: 'Test School',
       notificationsEnabled: true,
       lastActiveAt: '2026-04-18T00:00:00.000Z',

@@ -14,7 +14,13 @@ class GoogleSignInButton extends ConsumerWidget {
         onPressed: isLoading
             ? null
             : () => ref.read(authProvider.notifier).signInWithGoogle(),
-        child: const Text('Continue with Google'),
+        child: isLoading
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Continue with Google'),
       ),
     );
   }

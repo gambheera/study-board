@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-15
-last_updated: 2026-04-19T17:00:00Z
+last_updated: 2026-05-03  # 3-3 review
 project: StudyBoard
 project_key: NOKEY
 tracking_system: file-system
@@ -50,25 +50,25 @@ development_status:
   1-4-supabase-project-setup-and-row-level-security: done
   1-5-firebase-initialization-and-fcm-token-infrastructure: done
   1-6-student-registration-emailpassword: done
-  1-7-google-sign-in-and-account-linking: review
-  1-8-student-login-and-session-persistence: ready-for-dev
-  1-9-student-onboarding-profile-setup-and-notification-permission: backlog
-  1-10-student-profile-edit: backlog
-  epic-1-retrospective: optional
+  1-7-google-sign-in-and-account-linking: done
+  1-8-student-login-and-session-persistence: done
+  1-9-student-onboarding-profile-setup-and-notification-permission: done
+  1-10-student-profile-edit: done
+  epic-1-retrospective: done
 
   # Epic 2: Chemistry Syllabus & Task Board
-  epic-2: backlog
-  2-1-chemistry-syllabus-content-seeding: backlog
-  2-2-backlog-view-full-syllabus-and-taskcard-component: backlog
-  2-3-kanban-board-and-task-promotion-flow: backlog
-  2-4-session-activity-logging: backlog
+  epic-2: in-progress
+  2-1-chemistry-syllabus-content-seeding: done
+  2-2-backlog-view-full-syllabus-and-taskcard-component: done
+  2-3-kanban-board-and-task-promotion-flow: done
+  2-4-session-activity-logging: done
   epic-2-retrospective: optional
 
   # Epic 3: Lesson Content & Curiosity-First Learning
-  epic-3: backlog
-  3-1-curiosity-first-warm-up-screen: backlog
-  3-2-lesson-content-screen-and-rich-media: backlog
-  3-3-content-image-pre-fetch-and-background-sync: backlog
+  epic-3: in-progress
+  3-1-curiosity-first-warm-up-screen: done
+  3-2-lesson-content-screen-and-rich-media: done
+  3-3-content-image-pre-fetch-and-background-sync: review
   epic-3-retrospective: optional
 
   # Epic 4: Quiz Engine, Completion Gate & Dopamine Loop

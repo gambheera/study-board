@@ -1,6 +1,6 @@
 # Story 1.8: Student Login & Session Persistence
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -24,49 +24,48 @@ so that I don't have to sign in again every time I open StudyBoard.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `signInWithEmailPassword()` to `AuthRepository` interface (AC: #1, #3)
-  - [ ] Open `lib/features/auth/domain/auth_repository.dart`
-  - [ ] Add method: `Future<Either<Failure, Student>> signInWithEmailPassword({required String email, required String password});`
+- [x] Task 1: Add `signInWithEmailPassword()` to `AuthRepository` interface (AC: #1, #3)
+  - [x] Open `lib/features/auth/domain/auth_repository.dart`
+  - [x] Add method: `Future<Either<Failure, Student>> signInWithEmailPassword({required String email, required String password});`
 
-- [ ] Task 2: Implement `signInWithEmailPassword()` in `AuthRepositoryImpl` + fix `getCurrentUser()` (DEF1) + fix `signOut()` (DEF2) (AC: #1, #3, #4, #5)
-  - [ ] Open `lib/features/auth/data/auth_repository_impl.dart`
-  - [ ] Implement `signInWithEmailPassword()` — calls `_client.auth.signInWithPassword()` inside `trySupabase()`; reads student from Drift after auth; see Dev Notes for full impl
-  - [ ] Fix `getCurrentUser()` — replace body to read from `_studentDao.getStudent(user.id)` first instead of reconstructing from auth user only (DEF1)
-  - [ ] Fix `signOut()` — call `_studentDao.deleteStudent(userId)` after `auth.signOut()` (DEF2); if `deleteStudent()` does not exist on `StudentDao`, add it — see Dev Notes
-  - [ ] Ensure Supabase error "Invalid login credentials" is NEVER passed through to UI — always map to `AuthFailure('Incorrect email or password')`
+- [x] Task 2: Implement `signInWithEmailPassword()` in `AuthRepositoryImpl` + fix `getCurrentUser()` (DEF1) + fix `signOut()` (DEF2) (AC: #1, #3, #4, #5)
+  - [x] Open `lib/features/auth/data/auth_repository_impl.dart`
+  - [x] Implement `signInWithEmailPassword()` — calls `_client.auth.signInWithPassword()` inside `trySupabase()`; reads student from Drift after auth; see Dev Notes for full impl
+  - [x] Fix `getCurrentUser()` — replace body to read from `_studentDao.getStudent(user.id)` first instead of reconstructing from auth user only (DEF1)
+  - [x] Fix `signOut()` — call `_studentDao.deleteStudent(userId)` after `auth.signOut()` (DEF2); added `deleteStudent()` to `StudentDao`
+  - [x] Ensure Supabase error "Invalid login credentials" is NEVER passed through to UI — always map to `AuthFailure('Incorrect email or password')`
 
-- [ ] Task 3: Add `signInWithEmailPassword()`, fix `build()` + stream wiring in `AuthNotifier` (AC: #1, #3, #4, #5, #6, DEF3, DEF5, DEF8)
-  - [ ] Open `lib/features/auth/presentation/auth_notifier.dart`
-  - [ ] Add `signInWithEmailPassword()` method — same concurrency guard + Either fold pattern as `signInWithGoogle()`; always emits `isNewStudent: false`
-  - [ ] Fix `AuthNotifier.build()` — add `_restoreSession()` call for cold-start session check (DEF3); see Dev Notes for implementation
-  - [ ] Wire `authStateStream` via `ref.listen(authStateStreamProvider, ...)` inside `build()` to handle `signedIn`/`signedOut`/`tokenRefreshed` events (DEF5); see Dev Notes for DEF8 race mitigation and session-expired message
-  - [ ] Run `dart run build_runner build --delete-conflicting-outputs` from `studyboard_mobile/` — `build()` now returns `Future<AuthState>` which changes the generated code
+- [x] Task 3: Add `signInWithEmailPassword()`, fix `build()` + stream wiring in `AuthNotifier` (AC: #1, #3, #4, #5, #6, DEF3, DEF5, DEF8)
+  - [x] Open `lib/features/auth/presentation/auth_notifier.dart`
+  - [x] Add `signInWithEmailPassword()` method — same concurrency guard + Either fold pattern as `signInWithGoogle()`; always emits `isNewStudent: false`
+  - [x] Fix `AuthNotifier.build()` — calls `getCurrentUser()` for cold-start session check (DEF3)
+  - [x] Wire `authStateStream` via `ref.listen(authStateStreamProvider, ...)` inside `build()` to handle `signedIn`/`signedOut`/`tokenRefreshed` events (DEF5); DEF8 race mitigation in `signedIn` handler; session-expired flag via `_explicitSignOut`
+  - [x] Run `dart run build_runner build --delete-conflicting-outputs` from `studyboard_mobile/`
 
-- [ ] Task 4: Add `sessionExpired` field to `AuthState.unauthenticated` (AC: #6)
-  - [ ] Open `lib/features/auth/presentation/auth_state.dart`
-  - [ ] Add `@Default(false) bool sessionExpired` to `AuthState.unauthenticated()` factory
-  - [ ] Run `dart run build_runner build --delete-conflicting-outputs` after this change
-  - [ ] In `AuthNotifier._handleAuthStateChange()`, emit `AuthState.unauthenticated(sessionExpired: true)` when stream emits `signedOut` via token expiry (not from explicit `signOut()` call); set a `bool _explicitSignOut = false` flag that `signOut()` sets to `true` before calling `auth.signOut()`
+- [x] Task 4: Add `sessionExpired` field to `AuthState.unauthenticated` (AC: #6)
+  - [x] Open `lib/features/auth/presentation/auth_state.dart`
+  - [x] Add `@Default(false) bool sessionExpired` to `AuthState.unauthenticated()` factory
+  - [x] Run `dart run build_runner build --delete-conflicting-outputs` after this change
+  - [x] In `AuthNotifier._handleAuthStateChange()`, emit `AuthState.unauthenticated(sessionExpired: true)` when stream emits `signedOut` via token expiry; `_explicitSignOut` flag set to `true` by `signOut()` before calling Supabase
 
-- [ ] Task 5: Create `LoginScreen` widget (AC: #1, #2, #3, #5, #6)
-  - [ ] Create `lib/features/auth/presentation/login_screen.dart`
-  - [ ] Email `AuthFormField` + password `AuthFormField` (obscured) + "Log in" `FilledButton` + divider + `GoogleSignInButton`
-  - [ ] Validation fires on blur only (same pattern as `RegisterScreen`) — `_emailTouched`, `_passwordTouched` flags
-  - [ ] `ref.listen(authProvider, ...)` drives routing: authenticated → `context.go('/board')`; error → SnackBar with Failure message
-  - [ ] On first render, if `authProvider.value` is `AuthState.unauthenticated(sessionExpired: true)`, show SnackBar "Your session expired — please log in again" using `WidgetsBinding.instance.addPostFrameCallback`
-  - [ ] See Dev Notes for full widget code
+- [x] Task 5: Create `LoginScreen` widget (AC: #1, #2, #3, #5, #6)
+  - [x] Create `lib/features/auth/presentation/login_screen.dart`
+  - [x] Email `AuthFormField` + password `AuthFormField` (obscured) + "Log in" `FilledButton` + divider + `GoogleSignInButton`
+  - [x] Validation fires on blur only (FocusNode.addListener pattern matching RegisterScreen) — `_emailError`/`_passwordError` fields
+  - [x] `ref.listen(authProvider, ...)` drives routing: authenticated → `context.go('/board')`; error → SnackBar with Failure message
+  - [x] On first render, if `authProvider.value` is `AuthState.unauthenticated(sessionExpired: true)`, show SnackBar "Your session expired — please log in again" using `WidgetsBinding.instance.addPostFrameCallback`
 
-- [ ] Task 6: Add `/login` route + auth guard `redirect` to go_router (AC: #4, #5, DEF4)
-  - [ ] Open the file containing `goRouterProvider` (check `lib/core/routing/` or `lib/app/` — locate via `grep -r "GoRouter(" lib/`)
-  - [ ] Add `GoRoute(path: '/login', builder: (_, __) => const LoginScreen())` to the routes list
-  - [ ] Add `redirect` callback: unauthenticated + non-`/login` destination → `/login`; authenticated + `/login` destination → `/board`
-  - [ ] Add `refreshListenable: RouterNotifier(ref)` (or extend existing notifier) so the router re-evaluates `redirect` on every `authProvider` state change; see Dev Notes for `RouterNotifier` implementation
-  - [ ] Update initial location to `/login` (router will redirect to `/board` if session exists)
+- [x] Task 6: Add `/login` route + auth guard `redirect` to go_router (AC: #4, #5, DEF4)
+  - [x] Open `lib/router.dart` containing `goRouterProvider`
+  - [x] Add `GoRoute(path: '/login', ...)` to the routes list
+  - [x] Add `redirect` callback: unauthenticated + non-`/login` destination → `/login`; authenticated + `/login` destination → `/board`; `isLoading` guard prevents premature redirect during session restore
+  - [x] Add `refreshListenable: _RouterNotifier(ref)` — new private class that listens on `authProvider`
+  - [x] Updated initial location to `/login`
 
-- [ ] Task 7: Tests (AC: #1, #2, #3, #4, #5, #6)
-  - [ ] Update `test/features/auth/data/auth_repository_impl_test.dart` — add 3 test cases for `signInWithEmailPassword()` (success, wrong credentials, Drift row absent), 1 for fixed `getCurrentUser()` (verifies Drift read), 1 for fixed `signOut()` (verifies Drift delete)
-  - [ ] Update `test/features/auth/presentation/auth_notifier_test.dart` — 2 test cases for `signInWithEmailPassword()`, 1 for session restore in `build()`, 1 for stream `signedOut` → unauthenticated transition
-  - [ ] Run `flutter test` → all pass; `flutter analyze` → 0 issues
+- [x] Task 7: Tests (AC: #1, #2, #3, #4, #5, #6)
+  - [x] Updated `test/features/auth/data/auth_repository_impl_test.dart` — 3 new cases for `signInWithEmailPassword()`, updated `getCurrentUser` tests to verify Drift read (DEF1), updated `signOut` tests to verify Drift delete (DEF2)
+  - [x] Updated `test/features/auth/presentation/auth_notifier_test.dart` — 2 cases for `signInWithEmailPassword()`, 2 for session restore in `build()`, 1 for stream `signedOut` → unauthenticated transition
+  - [x] `flutter test` → 86/86 pass; `flutter analyze` → 0 issues
 
 ## Dev Notes
 
@@ -646,6 +645,54 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+- Mocktail "Cannot call `when` within a stub response" — caused by calling `_mockUser()` (which contains `when()` calls) inside the argument of `when().thenReturn(...)`. Dart evaluates the argument while mocktail is still in recording mode. Fix: pre-create mock objects before any `when()` call.
+- Stream test timeout — overriding `authStateStreamProvider` directly in `ProviderContainer` + Completer-based wait was required for deterministic stream propagation in Riverpod tests.
+- `AuthFormField` has no `onBlur` param — used `FocusNode.addListener()` pattern from `RegisterScreen` instead.
+
 ### Completion Notes List
 
+- Implemented `signInWithEmailPassword()` in both interface and impl; AuthFailure message is always normalized to "Incorrect email or password" via `mapLeft` post-processing on `trySupabase()` result (AC: #3).
+- Fixed DEF1: `getCurrentUser()` now reads from `_studentDao.getStudent()` first; returns `null` if Drift row absent (treats as unauthenticated).
+- Fixed DEF2: `signOut()` calls `_studentDao.deleteStudent(userId)` after `auth.signOut()`; added `deleteStudent()` to `StudentDao`.
+- Fixed DEF3: `AuthNotifier.build()` calls `getCurrentUser()` for cold-start session restore.
+- Fixed DEF4: Router has `redirect` callback guarding all non-`/login` routes; `isLoading` guard prevents premature redirect while session check is in progress.
+- Fixed DEF5: `authStateStream` wired via `ref.listen(authStateStreamProvider, ...)` in `build()`.
+- Fixed DEF8: `signedIn` stream handler calls `getCurrentUser()` and only emits `authenticated` when Drift row is confirmed.
+- `_explicitSignOut` flag: set `true` by `signOut()` before calling Supabase; stream `signedOut` handler uses this to distinguish explicit vs expiry, setting `sessionExpired` accordingly.
+- `LoginScreen` uses `FocusNode.addListener()` for blur-triggered validation; shows session-expired SnackBar via `addPostFrameCallback` on first render.
+- All 86 tests pass; 0 analyzer issues.
+
 ### File List
+
+- lib/features/auth/domain/auth_repository.dart
+- lib/features/auth/data/auth_repository_impl.dart
+- lib/features/auth/presentation/auth_notifier.dart
+- lib/features/auth/presentation/auth_notifier.g.dart
+- lib/features/auth/presentation/auth_state.dart
+- lib/features/auth/presentation/auth_state.freezed.dart
+- lib/features/auth/presentation/login_screen.dart
+- lib/core/database/daos/student_dao.dart
+- lib/router.dart
+- test/features/auth/data/auth_repository_impl_test.dart
+- test/features/auth/presentation/auth_notifier_test.dart
+
+### Review Findings
+
+- [x] [Review][Decision] DN1: `getCurrentUser()` synthesises minimal Drift row on reinstall — **decided: keep current behaviour (A)** — no code change [auth_repository_impl.dart:~231–258]
+- [x] [Review][Patch] DN2→P7: Guard `/register` route for authenticated users — fixed: `isGoingToRegister` check added; authenticated + `/register` → `/board` [router.dart:~33–37]
+- [x] [Review][Patch] P1: `LoginScreen` error SnackBar — already correctly uses `error.message`; dismissed on inspection [login_screen.dart:~107]
+- [x] [Review][Patch] P2: `LoginScreen` does not suppress Google Sign-In cancelled SnackBar — fixed: added `if (message == AuthFailure.googleSignInCancelled) return;` [login_screen.dart:~108]
+- [x] [Review][Patch] P3: `_RouterNotifier` never disposed — fixed: captured as `notifier` variable; `ref.onDispose(notifier.dispose)` registered [router.dart:~19–21]
+- [x] [Review][Patch] P4: `userDeleted` auth event — dismissed: deprecated in Supabase Flutter SDK, never emitted; `signedOut` already covers account deletion [auth_notifier.dart]
+- [x] [Review][Patch] P5: Session-expiry SnackBar is one-shot — fixed: `ref.listen` data handler now uses `authState.map` to show SnackBar on `unauthenticated(sessionExpired: true)` transitions while mounted [login_screen.dart:~96–113]
+- [x] [Review][Patch] P6: `signOut()` Drift delete failure caused incorrect error state — fixed: Supabase signOut in explicit try/catch (Left on failure); Drift delete is now best-effort (swallows failure, returns Right) [auth_repository_impl.dart:~274–295]
+- [x] [Review][Defer] D1: `notificationsEnabled`/`district`/`school` fabricated as defaults on reinstall for email-auth users — no server-side source of truth; deferred to future sync story [auth_repository_impl.dart] — deferred, pre-existing
+- [x] [Review][Defer] D2: Hard DELETE in `deleteStudent()` may conflict with future sync-queue patterns — acceptable now; revisit when Story 5-x adds sync-queue consumer [student_dao.dart] — deferred, pre-existing
+- [x] [Review][Defer] D3: `authStateStream` listener set up after `getCurrentUser()` await — stream events during the await are missed — structural limitation of `AsyncNotifier` with stream wiring [auth_notifier.dart] — deferred, pre-existing
+- [x] [Review][Defer] D4: `GoogleSignInButton` spinner activates during email/password sign-in — requires per-operation loading state in `AuthState` [google_sign_in_button.dart] — deferred, pre-existing
+- [x] [Review][Defer] D5: `signInWithEmailPassword` Supabase success + Drift fail + cleanup `signOut` fail = orphaned session — pre-existing distributed operation limitation [auth_repository_impl.dart] — deferred, pre-existing
+
+## Change Log
+
+- 2026-04-25: Implemented story 1-8 — email/password login, session persistence, auth guard router redirect, and resolution of DEF1–DEF5, DEF8. 86/86 tests pass, 0 analyzer issues. (claude-sonnet-4-6)
+- 2026-04-26: Code review patches applied — P2/P3/P5/P6/P7 fixed, P1/P4 dismissed on inspection. DN1 kept as-is (option A), DN2 guarded as option C. 86/86 tests pass, 0 analyzer issues. Story marked done. (claude-sonnet-4-6)

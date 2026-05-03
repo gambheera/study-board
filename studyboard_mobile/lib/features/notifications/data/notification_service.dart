@@ -34,6 +34,28 @@ class NotificationService {
     }
   }
 
+  /// Requests notification permission. Returns the resulting
+  /// authorization status.
+  /// On Android 12 and below: returns authorized without a dialog.
+  /// On Android 13+: shows the OS POST_NOTIFICATIONS permission dialog.
+  Future<AuthorizationStatus> requestPermission() async {
+    try {
+      final settings = await _fcm.requestPermission();
+      return settings.authorizationStatus;
+    } on Object catch (error, stack) {
+      try {
+        await _crashlyticsInstance.recordError(
+          error,
+          stack,
+          reason: 'FCM requestPermission failed',
+        );
+      } on Object {
+        // Crashlytics unavailable
+      }
+      return AuthorizationStatus.denied;
+    }
+  }
+
   /// Stream of FCM token refreshes. Callers subscribe once per session and
   /// persist each new token via StudentDao.updateFcmToken().
   Stream<String> get onTokenRefresh => _fcm.onTokenRefresh;

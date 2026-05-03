@@ -6,6 +6,8 @@ part of 'student_dao.dart';
 mixin _$StudentDaoMixin on DatabaseAccessor<AppDatabase> {
   $StudentsTableTable get studentsTable => attachedDatabase.studentsTable;
   $SyncQueueTableTable get syncQueueTable => attachedDatabase.syncQueueTable;
+  $StudentSubjectsTableTable get studentSubjectsTable =>
+      attachedDatabase.studentSubjectsTable;
   StudentDaoManager get managers => StudentDaoManager(this);
 }
 
@@ -18,5 +20,10 @@ class StudentDaoManager {
       $$SyncQueueTableTableTableManager(
         _db.attachedDatabase,
         _db.syncQueueTable,
+      );
+  $$StudentSubjectsTableTableTableManager get studentSubjectsTable =>
+      $$StudentSubjectsTableTableTableManager(
+        _db.attachedDatabase,
+        _db.studentSubjectsTable,
       );
 }

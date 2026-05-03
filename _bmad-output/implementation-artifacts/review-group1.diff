@@ -1,0 +1,1731 @@
+﻿diff --git a/studyboard_mobile/lib/core/database/daos/task_dao.dart b/studyboard_mobile/lib/core/database/daos/task_dao.dart
+index 71acb39..6428763 100644
+--- a/studyboard_mobile/lib/core/database/daos/task_dao.dart
++++ b/studyboard_mobile/lib/core/database/daos/task_dao.dart
+@@ -3,6 +3,8 @@ import 'dart:convert';
+ import 'package:drift/drift.dart';
+ import 'package:studyboard_mobile/core/database/app_database.dart';
+ import 'package:studyboard_mobile/core/database/tables/lesson_tasks_table.dart';
++import 'package:studyboard_mobile/core/database/tables/lessons_table.dart';
++import 'package:studyboard_mobile/core/database/tables/topics_table.dart';
+ import 'package:studyboard_mobile/core/sync/sync_queue_table.dart';
+ import 'package:studyboard_mobile/features/board/domain/task_status.dart';
+ import 'package:uuid/uuid.dart';
+@@ -11,108 +13,284 @@ part 'task_dao.g.dart';
+ 
+ const _uuid = Uuid();
+ 
+-@DriftAccessor(tables: [LessonTasksTable, SyncQueueTable])
++class BacklogRow {
++  const BacklogRow({
++    required this.task,
++    required this.lesson,
++    required this.topic,
++  });
++
++  final LessonTasksTableData task;
++  final LessonsTableData lesson;
++  final TopicsTableData topic;
++}
++
++@DriftAccessor(
++  tables: [LessonTasksTable, SyncQueueTable, LessonsTable, TopicsTable],
++)
+ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
+   TaskDao(super.attachedDatabase);
+ 
+   Future<void> markTaskComplete(String taskId) => transaction(() async {
+-        final now = DateTime.now().toUtc().toIso8601String();
+-        final affected =
+-            await (update(lessonTasksTable)..where((t) => t.id.equals(taskId)))
+-                .write(LessonTasksTableCompanion(
+-          taskStatus: Value(TaskStatus.done.toDbString()),
+-          updatedAt: Value(now),
+-        ));
+-        if (affected == 0) return;
+-        await into(syncQueueTable).insert(SyncQueueTableCompanion.insert(
+-          id: _uuid.v4(),
+-          entityType: 'task_status',
+-          entityId: taskId,
+-          operation: 'upsert',
+-          payload: jsonEncode({
+-            'task_status': TaskStatus.done.toDbString(),
+-            'task_id': taskId,
+-          }),
+-          createdAt: now,
+-        ));
+-      });
++    final now = DateTime.now().toUtc().toIso8601String();
++    final affected =
++        await (update(
++          lessonTasksTable,
++        )..where((t) => t.id.equals(taskId))).write(
++          LessonTasksTableCompanion(
++            taskStatus: Value(TaskStatus.done.toDbString()),
++            updatedAt: Value(now),
++          ),
++        );
++    if (affected == 0) return;
++    await into(syncQueueTable).insert(
++      SyncQueueTableCompanion.insert(
++        id: _uuid.v4(),
++        entityType: 'task_status',
++        entityId: taskId,
++        operation: 'upsert',
++        payload: jsonEncode({
++          'task_status': TaskStatus.done.toDbString(),
++          'task_id': taskId,
++        }),
++        createdAt: now,
++      ),
++    );
++  });
+ 
+   Future<void> resetTaskToInProgress(String taskId) => transaction(() async {
+-        final now = DateTime.now().toUtc().toIso8601String();
+-        final affected =
+-            await (update(lessonTasksTable)..where((t) => t.id.equals(taskId)))
+-                .write(LessonTasksTableCompanion(
+-          taskStatus: Value(TaskStatus.inProgress.toDbString()),
+-          updatedAt: Value(now),
+-        ));
+-        if (affected == 0) return;
+-        await into(syncQueueTable).insert(SyncQueueTableCompanion.insert(
+-          id: _uuid.v4(),
+-          entityType: 'task_status',
+-          entityId: taskId,
+-          operation: 'upsert',
+-          payload: jsonEncode({
+-            'task_status': TaskStatus.inProgress.toDbString(),
+-            'context': 'reset',
+-            'task_id': taskId,
+-          }),
+-          createdAt: now,
+-        ));
+-      });
++    final now = DateTime.now().toUtc().toIso8601String();
++    final affected =
++        await (update(
++          lessonTasksTable,
++        )..where((t) => t.id.equals(taskId))).write(
++          LessonTasksTableCompanion(
++            taskStatus: Value(TaskStatus.inProgress.toDbString()),
++            updatedAt: Value(now),
++          ),
++        );
++    if (affected == 0) return;
++    await into(syncQueueTable).insert(
++      SyncQueueTableCompanion.insert(
++        id: _uuid.v4(),
++        entityType: 'task_status',
++        entityId: taskId,
++        operation: 'upsert',
++        payload: jsonEncode({
++          'task_status': TaskStatus.inProgress.toDbString(),
++          'context': 'reset',
++          'task_id': taskId,
++        }),
++        createdAt: now,
++      ),
++    );
++  });
+ 
+   Future<void> pullToTodo(String taskId) => transaction(() async {
+-        final now = DateTime.now().toUtc().toIso8601String();
+-        final affected =
+-            await (update(lessonTasksTable)..where((t) => t.id.equals(taskId)))
+-                .write(LessonTasksTableCompanion(
+-          taskStatus: Value(TaskStatus.todo.toDbString()),
+-          updatedAt: Value(now),
+-        ));
+-        if (affected == 0) return;
+-        await into(syncQueueTable).insert(SyncQueueTableCompanion.insert(
+-          id: _uuid.v4(),
+-          entityType: 'task_status',
+-          entityId: taskId,
+-          operation: 'upsert',
+-          payload: jsonEncode({
+-            'task_status': TaskStatus.todo.toDbString(),
+-            'task_id': taskId,
+-          }),
+-          createdAt: now,
+-        ));
+-      });
++    final now = DateTime.now().toUtc().toIso8601String();
++    final affected =
++        await (update(
++          lessonTasksTable,
++        )..where((t) => t.id.equals(taskId))).write(
++          LessonTasksTableCompanion(
++            taskStatus: Value(TaskStatus.todo.toDbString()),
++            updatedAt: Value(now),
++          ),
++        );
++    if (affected == 0) return;
++    await into(syncQueueTable).insert(
++      SyncQueueTableCompanion.insert(
++        id: _uuid.v4(),
++        entityType: 'task_status',
++        entityId: taskId,
++        operation: 'upsert',
++        payload: jsonEncode({
++          'task_status': TaskStatus.todo.toDbString(),
++          'task_id': taskId,
++        }),
++        createdAt: now,
++      ),
++    );
++  });
+ 
+   Future<void> startTask(String taskId) => transaction(() async {
+-        final now = DateTime.now().toUtc().toIso8601String();
+-        final affected =
+-            await (update(lessonTasksTable)..where((t) => t.id.equals(taskId)))
+-                .write(LessonTasksTableCompanion(
+-          taskStatus: Value(TaskStatus.inProgress.toDbString()),
+-          updatedAt: Value(now),
+-        ));
+-        if (affected == 0) return;
+-        await into(syncQueueTable).insert(SyncQueueTableCompanion.insert(
+-          id: _uuid.v4(),
+-          entityType: 'task_status',
+-          entityId: taskId,
+-          operation: 'upsert',
+-          payload: jsonEncode({
+-            'task_status': TaskStatus.inProgress.toDbString(),
+-            'context': 'start',
+-            'task_id': taskId,
+-          }),
+-          createdAt: now,
+-        ));
+-      });
++    final now = DateTime.now().toUtc().toIso8601String();
++    final affected =
++        await (update(
++          lessonTasksTable,
++        )..where((t) => t.id.equals(taskId))).write(
++          LessonTasksTableCompanion(
++            taskStatus: Value(TaskStatus.inProgress.toDbString()),
++            updatedAt: Value(now),
++          ),
++        );
++    if (affected == 0) return;
++    await into(syncQueueTable).insert(
++      SyncQueueTableCompanion.insert(
++        id: _uuid.v4(),
++        entityType: 'task_status',
++        entityId: taskId,
++        operation: 'upsert',
++        payload: jsonEncode({
++          'task_status': TaskStatus.inProgress.toDbString(),
++          'context': 'start',
++          'task_id': taskId,
++        }),
++        createdAt: now,
++      ),
++    );
++  });
+ 
+   Future<LessonTasksTableData?> getTaskByLesson(
+     String studentId,
+     String lessonId,
+   ) =>
+-      (select(lessonTasksTable)
+-            ..where(
+-              (t) =>
+-                  t.studentId.equals(studentId) & t.lessonId.equals(lessonId),
+-            ))
++      (select(lessonTasksTable)..where(
++            (t) => t.studentId.equals(studentId) & t.lessonId.equals(lessonId),
++          ))
+           .getSingleOrNull();
++
++  Future<void> createLessonTasksForStudent(
++    String studentId,
++    List<String> lessonIds,
++  ) async {
++    final now = DateTime.now().toUtc().toIso8601String();
++    await batch((b) {
++      for (final lessonId in lessonIds) {
++        b.insert(
++          lessonTasksTable,
++          LessonTasksTableCompanion.insert(
++            id: _uuid.v4(),
++            studentId: studentId,
++            lessonId: lessonId,
++            taskStatus: Value(TaskStatus.backlog.toDbString()),
++            createdAt: now,
++            updatedAt: now,
++          ),
++          mode: InsertMode.insertOrIgnore,
++        );
++      }
++    });
++  }
++
++  Stream<List<BacklogRow>> watchBacklogTasks(
++    String studentId, {
++    String? contentTrack,
++  }) {
++    var condition =
++        lessonTasksTable.studentId.equals(studentId) &
++        lessonTasksTable.taskStatus.equals(
++          TaskStatus.backlog.toDbString(),
++        );
++
++    if (contentTrack != null) {
++      condition = condition & lessonsTable.contentTrack.equals(contentTrack);
++    }
++
++    return (select(lessonTasksTable).join([
++            innerJoin(
++              lessonsTable,
++              lessonsTable.id.equalsExp(lessonTasksTable.lessonId),
++            ),
++            innerJoin(
++              topicsTable,
++              topicsTable.id.equalsExp(lessonsTable.topicId),
++            ),
++          ])
++          ..where(condition)
++          ..orderBy([
++            OrderingTerm.asc(topicsTable.orderIndex),
++            OrderingTerm.asc(lessonsTable.orderIndex),
++          ]))
++        .watch()
++        .map(
++          (rows) => rows
++              .map(
++                (r) => BacklogRow(
++                  task: r.readTable(lessonTasksTable),
++                  lesson: r.readTable(lessonsTable),
++                  topic: r.readTable(topicsTable),
++                ),
++              )
++              .toList(),
++        );
++  }
++
++  Stream<List<BacklogRow>> watchTasksByStatus(
++    String studentId,
++    TaskStatus status,
++  ) {
++    final condition =
++        lessonTasksTable.studentId.equals(studentId) &
++        lessonTasksTable.taskStatus.equals(status.toDbString());
++
++    return (select(lessonTasksTable).join([
++            innerJoin(
++              lessonsTable,
++              lessonsTable.id.equalsExp(lessonTasksTable.lessonId),
++            ),
++            innerJoin(
++              topicsTable,
++              topicsTable.id.equalsExp(lessonsTable.topicId),
++            ),
++          ])
++          ..where(condition)
++          ..orderBy([
++            OrderingTerm.asc(topicsTable.orderIndex),
++            OrderingTerm.asc(lessonsTable.orderIndex),
++          ]))
++        .watch()
++        .map(
++          (rows) => rows
++              .map(
++                (r) => BacklogRow(
++                  task: r.readTable(lessonTasksTable),
++                  lesson: r.readTable(lessonsTable),
++                  topic: r.readTable(topicsTable),
++                ),
++              )
++              .toList(),
++        );
++  }
++
++  Stream<bool> watchHasDoneTasks(String studentId) {
++    return (selectOnly(lessonTasksTable)
++          ..addColumns([lessonTasksTable.id])
++          ..where(
++            lessonTasksTable.studentId.equals(studentId) &
++                lessonTasksTable.taskStatus.equals(
++                  TaskStatus.done.toDbString(),
++                ),
++          )
++          ..limit(1))
++        .watch()
++        .map((rows) => rows.isNotEmpty);
++  }
++
++  Future<void> moveToBacklog(String taskId) => transaction(() async {
++    final now = DateTime.now().toUtc().toIso8601String();
++    final affected =
++        await (update(
++          lessonTasksTable,
++        )..where((t) => t.id.equals(taskId))).write(
++          LessonTasksTableCompanion(
++            taskStatus: Value(TaskStatus.backlog.toDbString()),
++            updatedAt: Value(now),
++          ),
++        );
++    if (affected == 0) return;
++    await into(syncQueueTable).insert(
++      SyncQueueTableCompanion.insert(
++        id: _uuid.v4(),
++        entityType: 'task_status',
++        entityId: taskId,
++        operation: 'upsert',
++        payload: jsonEncode({
++          'task_status': TaskStatus.backlog.toDbString(),
++          'task_id': taskId,
++        }),
++        createdAt: now,
++      ),
++    );
++  });
+ }
+diff --git a/studyboard_mobile/lib/core/database/daos/task_dao.g.dart b/studyboard_mobile/lib/core/database/daos/task_dao.g.dart
+index b189273..ae935fd 100644
+--- a/studyboard_mobile/lib/core/database/daos/task_dao.g.dart
++++ b/studyboard_mobile/lib/core/database/daos/task_dao.g.dart
+@@ -7,6 +7,8 @@ mixin _$TaskDaoMixin on DatabaseAccessor<AppDatabase> {
+   $LessonTasksTableTable get lessonTasksTable =>
+       attachedDatabase.lessonTasksTable;
+   $SyncQueueTableTable get syncQueueTable => attachedDatabase.syncQueueTable;
++  $LessonsTableTable get lessonsTable => attachedDatabase.lessonsTable;
++  $TopicsTableTable get topicsTable => attachedDatabase.topicsTable;
+   TaskDaoManager get managers => TaskDaoManager(this);
+ }
+ 
+@@ -23,4 +25,8 @@ class TaskDaoManager {
+         _db.attachedDatabase,
+         _db.syncQueueTable,
+       );
++  $$LessonsTableTableTableManager get lessonsTable =>
++      $$LessonsTableTableTableManager(_db.attachedDatabase, _db.lessonsTable);
++  $$TopicsTableTableTableManager get topicsTable =>
++      $$TopicsTableTableTableManager(_db.attachedDatabase, _db.topicsTable);
+ }
+diff --git a/studyboard_mobile/lib/features/backlog/presentation/backlog_screen.dart b/studyboard_mobile/lib/features/backlog/presentation/backlog_screen.dart
+index 999ad7b..5a3f63a 100644
+--- a/studyboard_mobile/lib/features/backlog/presentation/backlog_screen.dart
++++ b/studyboard_mobile/lib/features/backlog/presentation/backlog_screen.dart
+@@ -1,10 +1,248 @@
++import 'dart:async';
++
+ import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++import 'package:go_router/go_router.dart';
++import 'package:studyboard_mobile/features/auth/presentation/auth_notifier.dart';
++import 'package:studyboard_mobile/features/auth/presentation/auth_state.dart';
++import 'package:studyboard_mobile/features/backlog/domain/backlog_item.dart';
++import 'package:studyboard_mobile/features/backlog/presentation/backlog_items_provider.dart';
++import 'package:studyboard_mobile/features/backlog/presentation/widgets/skeleton_task_card.dart';
++import 'package:studyboard_mobile/features/backlog/presentation/widgets/task_card.dart';
++import 'package:studyboard_mobile/features/board/data/board_provider.dart';
++import 'package:studyboard_mobile/features/board/domain/board_repository.dart';
+ 
+-class BacklogScreen extends StatelessWidget {
++class BacklogScreen extends ConsumerStatefulWidget {
+   const BacklogScreen({super.key});
+ 
++  @override
++  ConsumerState<BacklogScreen> createState() => _BacklogScreenState();
++}
++
++class _BacklogScreenState extends ConsumerState<BacklogScreen>
++    with SingleTickerProviderStateMixin {
++  late final TabController _tabController;
++
++  static const _contentTracks = ['theory', 'past_papers', 'future_papers'];
++
++  @override
++  void initState() {
++    super.initState();
++    _tabController = TabController(length: 3, vsync: this);
++    _tabController.addListener(_onTabChanged);
++  }
++
++  void _onTabChanged() {
++    if (_tabController.indexIsChanging) return;
++    setState(() {});
++  }
++
++  @override
++  void dispose() {
++    _tabController
++      ..removeListener(_onTabChanged)
++      ..dispose();
++    super.dispose();
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    final authValue = ref.watch(authProvider);
++
++    if (authValue.isLoading) {
++      return Scaffold(
++        body: ListView(
++          padding: const EdgeInsets.only(top: 8, bottom: 16),
++          children: List.generate(3, (_) => const SkeletonTaskCard()),
++        ),
++      );
++    }
++
++    final student = authValue.value?.mapOrNull(authenticated: (a) => a.student);
++    if (student == null) return const SizedBox.shrink();
++
++    final studentId = student.id;
++    final selectedTrack = _contentTracks[_tabController.index];
++    final itemsAsync = ref.watch(
++      backlogItemsProvider(studentId: studentId, contentTrack: selectedTrack),
++    );
++    final boardRepo = ref.read(boardRepositoryProvider);
++
++    return Scaffold(
++      appBar: AppBar(
++        title: const Text('Backlog'),
++        actions: [
++          IconButton(
++            icon: const Icon(Icons.person_outline),
++            tooltip: 'Profile',
++            onPressed: () => context.push('/profile'),
++          ),
++        ],
++        bottom: TabBar(
++          controller: _tabController,
++          tabs: const [
++            Tab(text: 'Theory'),
++            Tab(text: 'Past Papers'),
++            Tab(text: 'Future Papers'),
++          ],
++        ),
++      ),
++      body: itemsAsync.when(
++        data: (items) {
++          if (items.isEmpty) {
++            final emptyMessage = selectedTrack == 'future_papers'
++                ? 'No Future Papers content available yet.'
++                : 'Everything is in progress or done.';
++            return Center(
++              child: Text(
++                emptyMessage,
++                style: Theme.of(context).textTheme.bodyMedium,
++              ),
++            );
++          }
++          return _AnimatedBacklogList(
++            items: items,
++            onTap: (item) => _showBacklogActionSheet(context, boardRepo, item),
++          );
++        },
++        loading: () => ListView(
++          padding: const EdgeInsets.only(top: 8, bottom: 16),
++          children: List.generate(3, (_) => const SkeletonTaskCard()),
++        ),
++        error: (_, _) => Center(
++          child: Text(
++            'Failed to load tasks.',
++            style: Theme.of(context).textTheme.bodyMedium,
++          ),
++        ),
++      ),
++    );
++  }
++
++  void _showBacklogActionSheet(
++    BuildContext context,
++    BoardRepository boardRepo,
++    BacklogItem item,
++  ) {
++    unawaited(
++      showModalBottomSheet<void>(
++        context: context,
++        builder: (sheetCtx) => SafeArea(
++          child: Padding(
++            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
++            child: Column(
++              mainAxisSize: MainAxisSize.min,
++              crossAxisAlignment: CrossAxisAlignment.start,
++              children: [
++                Text(
++                  item.lessonTitle,
++                  style: Theme.of(context).textTheme.titleMedium,
++                ),
++                const SizedBox(height: 4),
++                Text(
++                  item.topicTitle,
++                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
++                    color: Theme.of(context).colorScheme.onSurface.withValues(
++                      alpha: 0.6,
++                    ),
++                  ),
++                ),
++                const SizedBox(height: 16),
++                SizedBox(
++                  width: double.infinity,
++                  child: FilledButton(
++                    onPressed: () {
++                      Navigator.pop(sheetCtx);
++                      unawaited(boardRepo.promoteToTodo(item.taskId));
++                    },
++                    child: const Text('Move to To-Do'),
++                  ),
++                ),
++                const SizedBox(height: 8),
++                SizedBox(
++                  width: double.infinity,
++                  child: TextButton(
++                    onPressed: () => Navigator.pop(sheetCtx),
++                    child: const Text('Cancel'),
++                  ),
++                ),
++              ],
++            ),
++          ),
++        ),
++      ),
++    );
++  }
++}
++
++class _AnimatedBacklogList extends StatefulWidget {
++  const _AnimatedBacklogList({
++    required this.items,
++    required this.onTap,
++  });
++
++  final List<BacklogItem> items;
++  final void Function(BacklogItem item) onTap;
++
++  @override
++  State<_AnimatedBacklogList> createState() => _AnimatedBacklogListState();
++}
++
++class _AnimatedBacklogListState extends State<_AnimatedBacklogList> {
++  final _listKey = GlobalKey<AnimatedListState>();
++  late List<BacklogItem> _items;
++
++  @override
++  void initState() {
++    super.initState();
++    _items = List.from(widget.items);
++  }
++
++  @override
++  void didUpdateWidget(_AnimatedBacklogList oldWidget) {
++    super.didUpdateWidget(oldWidget);
++    _applyDiff(widget.items);
++  }
++
++  void _applyDiff(List<BacklogItem> newItems) {
++    for (var i = _items.length - 1; i >= 0; i--) {
++      final taskId = _items[i].taskId;
++      if (!newItems.any((item) => item.taskId == taskId)) {
++        final removed = _items.removeAt(i);
++        _listKey.currentState?.removeItem(
++          i,
++          (ctx, anim) => SizeTransition(
++            sizeFactor: anim,
++            child: TaskCard(item: removed),
++          ),
++          duration: const Duration(milliseconds: 200),
++        );
++      }
++    }
++    for (var i = 0; i < newItems.length; i++) {
++      if (!_items.any((item) => item.taskId == newItems[i].taskId)) {
++        _items.insert(i, newItems[i]);
++        _listKey.currentState?.insertItem(
++          i,
++          duration: const Duration(milliseconds: 200),
++        );
++      }
++    }
++  }
++
+   @override
+   Widget build(BuildContext context) {
+-    return const Center(child: Text('Backlog'));
++    return AnimatedList(
++      key: _listKey,
++      padding: const EdgeInsets.only(top: 8, bottom: 16),
++      initialItemCount: _items.length,
++      itemBuilder: (ctx, index, animation) => SizeTransition(
++        sizeFactor: animation,
++        child: TaskCard(
++          item: _items[index],
++          onTap: () => widget.onTap(_items[index]),
++        ),
++      ),
++    );
+   }
+ }
+diff --git a/studyboard_mobile/lib/features/board/presentation/board_screen.dart b/studyboard_mobile/lib/features/board/presentation/board_screen.dart
+index ea16eb4..9c4e18a 100644
+--- a/studyboard_mobile/lib/features/board/presentation/board_screen.dart
++++ b/studyboard_mobile/lib/features/board/presentation/board_screen.dart
+@@ -1,10 +1,318 @@
++import 'dart:async';
++
+ import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++import 'package:go_router/go_router.dart';
++import 'package:studyboard_mobile/features/auth/presentation/auth_notifier.dart';
++import 'package:studyboard_mobile/features/auth/presentation/auth_state.dart';
++import 'package:studyboard_mobile/features/backlog/domain/backlog_item.dart';
++import 'package:studyboard_mobile/features/backlog/presentation/widgets/skeleton_task_card.dart';
++import 'package:studyboard_mobile/features/backlog/presentation/widgets/task_card.dart';
++import 'package:studyboard_mobile/features/board/data/board_provider.dart';
++import 'package:studyboard_mobile/features/board/domain/task_status.dart';
++import 'package:studyboard_mobile/features/board/presentation/board_providers.dart';
+ 
+-class BoardScreen extends StatelessWidget {
++class BoardScreen extends ConsumerStatefulWidget {
+   const BoardScreen({super.key});
+ 
++  @override
++  ConsumerState<BoardScreen> createState() => _BoardScreenState();
++}
++
++class _BoardScreenState extends ConsumerState<BoardScreen>
++    with TickerProviderStateMixin {
++  late TabController _tabController;
++  int _tabCount = 2;
++
++  @override
++  void initState() {
++    super.initState();
++    _tabController = TabController(
++      length: _tabCount,
++      vsync: this,
++      initialIndex: 1,
++    );
++  }
++
++  void _updateTabCount(int newCount) {
++    if (newCount == _tabCount) return;
++    final prevIndex = _tabController.index;
++    _tabController.dispose();
++    _tabController = TabController(
++      length: newCount,
++      vsync: this,
++      initialIndex: prevIndex.clamp(0, newCount - 1),
++    );
++    setState(() => _tabCount = newCount);
++  }
++
++  @override
++  void dispose() {
++    _tabController.dispose();
++    super.dispose();
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    final authValue = ref.watch(authProvider);
++
++    if (authValue.isLoading) {
++      return Scaffold(
++        body: ListView(
++          padding: const EdgeInsets.only(top: 8, bottom: 16),
++          children: List.generate(3, (_) => const SkeletonTaskCard()),
++        ),
++      );
++    }
++
++    final student = authValue.value?.mapOrNull(authenticated: (a) => a.student);
++    if (student == null) return const SizedBox.shrink();
++
++    final studentId = student.id;
++
++    final hasDoneAsync = ref.watch(hasDoneTasksProvider(studentId: studentId));
++    final hasDone = hasDoneAsync.value ?? false;
++
++    WidgetsBinding.instance.addPostFrameCallback((_) {
++      _updateTabCount(hasDone ? 3 : 2);
++    });
++
++    return Scaffold(
++      appBar: AppBar(
++        title: const Text('Board'),
++        bottom: TabBar(
++          controller: _tabController,
++          tabs: [
++            const Tab(text: 'To-Do'),
++            const Tab(text: 'In Progress'),
++            if (hasDone) const Tab(text: 'Done'),
++          ],
++        ),
++      ),
++      body: TabBarView(
++        controller: _tabController,
++        children: [
++          _BoardColumn(
++            studentId: studentId,
++            status: TaskStatus.todo,
++            tabController: _tabController,
++          ),
++          _BoardColumn(
++            studentId: studentId,
++            status: TaskStatus.inProgress,
++            tabController: _tabController,
++          ),
++          if (hasDone)
++            _BoardColumn(
++              studentId: studentId,
++              status: TaskStatus.done,
++              tabController: _tabController,
++            ),
++        ],
++      ),
++    );
++  }
++}
++
++class _BoardColumn extends ConsumerStatefulWidget {
++  const _BoardColumn({
++    required this.studentId,
++    required this.status,
++    required this.tabController,
++  });
++
++  final String studentId;
++  final TaskStatus status;
++  final TabController tabController;
++
++  @override
++  ConsumerState<_BoardColumn> createState() => _BoardColumnState();
++}
++
++class _BoardColumnState extends ConsumerState<_BoardColumn> {
++  final _listKey = GlobalKey<AnimatedListState>();
++  final List<BacklogItem> _items = [];
++
++  void _applyDiff(List<BacklogItem> newItems) {
++    for (var i = _items.length - 1; i >= 0; i--) {
++      final taskId = _items[i].taskId;
++      if (!newItems.any((item) => item.taskId == taskId)) {
++        final removed = _items.removeAt(i);
++        _listKey.currentState?.removeItem(
++          i,
++          (ctx, anim) => SizeTransition(
++            sizeFactor: anim,
++            child: TaskCard(item: removed),
++          ),
++          duration: const Duration(milliseconds: 200),
++        );
++      }
++    }
++    for (var i = 0; i < newItems.length; i++) {
++      if (!_items.any((item) => item.taskId == newItems[i].taskId)) {
++        _items.insert(i, newItems[i]);
++        _listKey.currentState?.insertItem(
++          i,
++          duration: const Duration(milliseconds: 200),
++        );
++      }
++    }
++  }
++
+   @override
+   Widget build(BuildContext context) {
+-    return const Center(child: Text('Board'));
++    ref.listen(
++      boardItemsProvider(
++        studentId: widget.studentId,
++        status: widget.status,
++      ),
++      (previous, next) {
++        next.whenData(_applyDiff);
++      },
++    );
++
++    final itemsAsync = ref.watch(
++      boardItemsProvider(
++        studentId: widget.studentId,
++        status: widget.status,
++      ),
++    );
++
++    return itemsAsync.when(
++      loading: () => ListView(
++        padding: const EdgeInsets.only(top: 8, bottom: 16),
++        children: List.generate(3, (_) => const SkeletonTaskCard()),
++      ),
++      error: (_, _) => Center(
++        child: Text(
++          'Failed to load tasks.',
++          style: Theme.of(context).textTheme.bodyMedium,
++        ),
++      ),
++      data: (_) {
++        if (_items.isEmpty) return _buildEmptyState(context);
++        return AnimatedList(
++          key: _listKey,
++          padding: const EdgeInsets.only(top: 8, bottom: 16),
++          initialItemCount: _items.length,
++          itemBuilder: (ctx, index, animation) => SizeTransition(
++            sizeFactor: animation,
++            child: _buildCard(_items[index]),
++          ),
++        );
++      },
++    );
++  }
++
++  Widget _buildEmptyState(BuildContext context) {
++    if (widget.status == TaskStatus.inProgress) {
++      return Center(
++        child: Column(
++          mainAxisAlignment: MainAxisAlignment.center,
++          children: [
++            Text(
++              'Move a task to To-Do to get started',
++              style: Theme.of(context).textTheme.bodyMedium,
++              textAlign: TextAlign.center,
++            ),
++            const SizedBox(height: 16),
++            FilledButton(
++              onPressed: () => context.go('/backlog'),
++              child: const Text('Go to Backlog'),
++            ),
++          ],
++        ),
++      );
++    }
++    return Center(
++      child: Text(
++        widget.status == TaskStatus.todo
++            ? 'Your To-Do list is empty.'
++            : 'No completed tasks yet.',
++        style: Theme.of(context).textTheme.bodyMedium,
++      ),
++    );
++  }
++
++  Widget _buildCard(BacklogItem item) {
++    return TaskCard(
++      item: item,
++      onTap: _tapHandlerFor(item),
++    );
++  }
++
++  VoidCallback? _tapHandlerFor(BacklogItem item) {
++    return switch (item.taskStatus) {
++      TaskStatus.todo => () => _showTodoActionSheet(item),
++      TaskStatus.inProgress => null,
++      TaskStatus.done => null,
++      TaskStatus.backlog => null,
++    };
++  }
++
++  void _showTodoActionSheet(BacklogItem item) {
++    final colorScheme = Theme.of(context).colorScheme;
++    final textTheme = Theme.of(context).textTheme;
++    unawaited(
++      showModalBottomSheet<void>(
++        context: context,
++        builder: (sheetContext) => SafeArea(
++          child: Padding(
++            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
++            child: Column(
++              mainAxisSize: MainAxisSize.min,
++              crossAxisAlignment: CrossAxisAlignment.start,
++              children: [
++                Text(item.lessonTitle, style: textTheme.titleMedium),
++                const SizedBox(height: 4),
++                Text(
++                  item.topicTitle,
++                  style: textTheme.bodyMedium?.copyWith(
++                    color: colorScheme.onSurface.withValues(alpha: 0.6),
++                  ),
++                ),
++                const SizedBox(height: 16),
++                SizedBox(
++                  width: double.infinity,
++                  child: FilledButton(
++                    onPressed: () async {
++                      Navigator.pop(sheetContext);
++                      await ref
++                          .read(boardRepositoryProvider)
++                          .startTask(item.taskId);
++                      if (mounted) widget.tabController.animateTo(1);
++                    },
++                    child: const Text('Start studying'),
++                  ),
++                ),
++                const SizedBox(height: 8),
++                SizedBox(
++                  width: double.infinity,
++                  child: OutlinedButton(
++                    onPressed: () {
++                      Navigator.pop(sheetContext);
++                      unawaited(
++                        ref
++                            .read(boardRepositoryProvider)
++                            .moveToBacklog(item.taskId),
++                      );
++                    },
++                    child: const Text('Move back to Backlog'),
++                  ),
++                ),
++                const SizedBox(height: 8),
++                SizedBox(
++                  width: double.infinity,
++                  child: TextButton(
++                    onPressed: () => Navigator.pop(sheetContext),
++                    child: const Text('Cancel'),
++                  ),
++                ),
++              ],
++            ),
++          ),
++        ),
++      ),
++    );
+   }
+ }
+diff --git a/studyboard_mobile/lib/features/backlog/presentation/widgets/task_card.dart b/studyboard_mobile/lib/features/backlog/presentation/widgets/task_card.dart
+new file mode 100644
+index 0000000..69a987a
+--- /dev/null
++++ b/studyboard_mobile/lib/features/backlog/presentation/widgets/task_card.dart
+@@ -0,0 +1,106 @@
++import 'package:flutter/material.dart';
++import 'package:studyboard_mobile/core/theme/app_colors.dart';
++import 'package:studyboard_mobile/features/backlog/domain/backlog_item.dart';
++import 'package:studyboard_mobile/features/board/domain/task_status.dart';
++
++class TaskCard extends StatelessWidget {
++  const TaskCard({required this.item, this.onTap, super.key});
++
++  final VoidCallback? onTap;
++  final BacklogItem item;
++
++  @override
++  Widget build(BuildContext context) {
++    final colorScheme = Theme.of(context).colorScheme;
++    final borderColor = _borderColor(colorScheme, item.taskStatus);
++    final icon = _stateIcon(item.taskStatus);
++    final label = _stateLabel(item.taskStatus);
++
++    return Semantics(
++      label: onTap != null
++          ? '${item.lessonTitle}, $label, double-tap to see options'
++          : '${item.lessonTitle}, $label',
++      child: Card(
++        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
++        child: InkWell(
++          borderRadius: BorderRadius.circular(12),
++          onTap: onTap,
++          child: Container(
++            decoration: BoxDecoration(
++              border: Border(
++                left: BorderSide(color: borderColor, width: 4),
++              ),
++              borderRadius: BorderRadius.circular(12),
++            ),
++            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
++            child: Row(
++              children: [
++                Expanded(
++                  child: Column(
++                    crossAxisAlignment: CrossAxisAlignment.start,
++                    children: [
++                      Text(
++                        item.lessonTitle,
++                        style: Theme.of(context).textTheme.titleMedium,
++                      ),
++                      const SizedBox(height: 2),
++                      Text(
++                        item.topicTitle,
++                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
++                          color: colorScheme.onSurface.withValues(
++                            alpha: 0.6,
++                          ),
++                        ),
++                      ),
++                    ],
++                  ),
++                ),
++                const SizedBox(width: 8),
++                Column(
++                  mainAxisAlignment: MainAxisAlignment.center,
++                  children: [
++                    Icon(icon, color: borderColor, size: 20),
++                    const SizedBox(height: 2),
++                    Text(
++                      label,
++                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
++                        color: borderColor,
++                      ),
++                    ),
++                  ],
++                ),
++              ],
++            ),
++          ),
++        ),
++      ),
++    );
++  }
++
++  Color _borderColor(ColorScheme colorScheme, TaskStatus status) {
++    return switch (status) {
++      TaskStatus.backlog => colorScheme.taskBacklog,
++      TaskStatus.todo => colorScheme.taskBacklog,
++      TaskStatus.inProgress => colorScheme.taskInProgress,
++      TaskStatus.done => colorScheme.taskDone,
++    };
++  }
++
++  IconData _stateIcon(TaskStatus status) {
++    return switch (status) {
++      TaskStatus.backlog => Icons.access_time,
++      TaskStatus.todo => Icons.arrow_forward,
++      TaskStatus.inProgress => Icons.play_arrow,
++      TaskStatus.done => Icons.check_circle,
++    };
++  }
++
++  String _stateLabel(TaskStatus status) {
++    return switch (status) {
++      TaskStatus.backlog => 'Backlog',
++      TaskStatus.todo => 'To-Do',
++      TaskStatus.inProgress => 'In Progress',
++      TaskStatus.done => 'Done',
++    };
++  }
++}
+diff --git a/studyboard_mobile/lib/features/board/domain/board_repository.dart b/studyboard_mobile/lib/features/board/domain/board_repository.dart
+new file mode 100644
+index 0000000..99385e7
+--- /dev/null
++++ b/studyboard_mobile/lib/features/board/domain/board_repository.dart
+@@ -0,0 +1,17 @@
++import 'package:studyboard_mobile/features/backlog/domain/backlog_item.dart';
++import 'package:studyboard_mobile/features/board/domain/task_status.dart';
++
++abstract interface class BoardRepository {
++  Stream<List<BacklogItem>> watchBoardItems(
++    String studentId,
++    TaskStatus status,
++  );
++
++  Stream<bool> watchHasDoneTasks(String studentId);
++
++  Future<void> promoteToTodo(String taskId);
++
++  Future<void> startTask(String taskId);
++
++  Future<void> moveToBacklog(String taskId);
++}
+diff --git a/studyboard_mobile/lib/features/board/data/board_repository_impl.dart b/studyboard_mobile/lib/features/board/data/board_repository_impl.dart
+new file mode 100644
+index 0000000..ea994e9
+--- /dev/null
++++ b/studyboard_mobile/lib/features/board/data/board_repository_impl.dart
+@@ -0,0 +1,50 @@
++import 'package:studyboard_mobile/core/database/daos/task_dao.dart';
++import 'package:studyboard_mobile/features/backlog/domain/backlog_item.dart';
++import 'package:studyboard_mobile/features/board/domain/board_repository.dart';
++import 'package:studyboard_mobile/features/board/domain/task_status.dart';
++
++class BoardRepositoryImpl implements BoardRepository {
++  const BoardRepositoryImpl(this._taskDao);
++
++  final TaskDao _taskDao;
++
++  @override
++  Stream<List<BacklogItem>> watchBoardItems(
++    String studentId,
++    TaskStatus status,
++  ) {
++    return _taskDao
++        .watchTasksByStatus(studentId, status)
++        .map(
++          (rows) => rows
++              .map(
++                (r) => BacklogItem(
++                  taskId: r.task.id,
++                  lessonId: r.task.lessonId,
++                  lessonTitle: r.lesson.title,
++                  topicId: r.lesson.topicId,
++                  topicTitle: r.topic.title,
++                  contentTrack: r.lesson.contentTrack,
++                  taskStatus: TaskStatusX.fromString(r.task.taskStatus),
++                  curiosityCompleted: r.task.curiosityCompleted,
++                  lessonOrderIndex: r.lesson.orderIndex,
++                  topicOrderIndex: r.topic.orderIndex,
++                ),
++              )
++              .toList(),
++        );
++  }
++
++  @override
++  Stream<bool> watchHasDoneTasks(String studentId) =>
++      _taskDao.watchHasDoneTasks(studentId);
++
++  @override
++  Future<void> promoteToTodo(String taskId) => _taskDao.pullToTodo(taskId);
++
++  @override
++  Future<void> startTask(String taskId) => _taskDao.startTask(taskId);
++
++  @override
++  Future<void> moveToBacklog(String taskId) => _taskDao.moveToBacklog(taskId);
++}
+diff --git a/studyboard_mobile/lib/features/board/data/board_provider.dart b/studyboard_mobile/lib/features/board/data/board_provider.dart
+new file mode 100644
+index 0000000..853a152
+--- /dev/null
++++ b/studyboard_mobile/lib/features/board/data/board_provider.dart
+@@ -0,0 +1,11 @@
++import 'package:riverpod_annotation/riverpod_annotation.dart';
++import 'package:studyboard_mobile/core/database/database_provider.dart';
++import 'package:studyboard_mobile/features/board/data/board_repository_impl.dart';
++import 'package:studyboard_mobile/features/board/domain/board_repository.dart';
++
++part 'board_provider.g.dart';
++
++@riverpod
++BoardRepository boardRepository(Ref ref) {
++  return BoardRepositoryImpl(ref.watch(appDatabaseProvider).taskDao);
++}
+diff --git a/studyboard_mobile/lib/features/board/data/board_provider.g.dart b/studyboard_mobile/lib/features/board/data/board_provider.g.dart
+new file mode 100644
+index 0000000..af1e28b
+--- /dev/null
++++ b/studyboard_mobile/lib/features/board/data/board_provider.g.dart
+@@ -0,0 +1,52 @@
++// GENERATED CODE - DO NOT MODIFY BY HAND
++
++part of 'board_provider.dart';
++
++// **************************************************************************
++// RiverpodGenerator
++// **************************************************************************
++
++// GENERATED CODE - DO NOT MODIFY BY HAND
++// ignore_for_file: type=lint, type=warning
++
++@ProviderFor(boardRepository)
++final boardRepositoryProvider = BoardRepositoryProvider._();
++
++final class BoardRepositoryProvider
++    extends
++        $FunctionalProvider<BoardRepository, BoardRepository, BoardRepository>
++    with $Provider<BoardRepository> {
++  BoardRepositoryProvider._()
++    : super(
++        from: null,
++        argument: null,
++        retry: null,
++        name: r'boardRepositoryProvider',
++        isAutoDispose: true,
++        dependencies: null,
++        $allTransitiveDependencies: null,
++      );
++
++  @override
++  String debugGetCreateSourceHash() => _$boardRepositoryHash();
++
++  @$internal
++  @override
++  $ProviderElement<BoardRepository> $createElement($ProviderPointer pointer) =>
++      $ProviderElement(pointer);
++
++  @override
++  BoardRepository create(Ref ref) {
++    return boardRepository(ref);
++  }
++
++  /// {@macro riverpod.override_with_value}
++  Override overrideWithValue(BoardRepository value) {
++    return $ProviderOverride(
++      origin: this,
++      providerOverride: $SyncValueProvider<BoardRepository>(value),
++    );
++  }
++}
++
++String _$boardRepositoryHash() => r'8e8c5d1e7d3375fb09255c3eba95bc6983417a02';
+diff --git a/studyboard_mobile/lib/features/board/presentation/board_providers.dart b/studyboard_mobile/lib/features/board/presentation/board_providers.dart
+new file mode 100644
+index 0000000..31eac6b
+--- /dev/null
++++ b/studyboard_mobile/lib/features/board/presentation/board_providers.dart
+@@ -0,0 +1,20 @@
++import 'package:riverpod_annotation/riverpod_annotation.dart';
++import 'package:studyboard_mobile/features/backlog/domain/backlog_item.dart';
++import 'package:studyboard_mobile/features/board/data/board_provider.dart';
++import 'package:studyboard_mobile/features/board/domain/task_status.dart';
++
++part 'board_providers.g.dart';
++
++@riverpod
++Stream<List<BacklogItem>> boardItems(
++  Ref ref, {
++  required String studentId,
++  required TaskStatus status,
++}) {
++  return ref.watch(boardRepositoryProvider).watchBoardItems(studentId, status);
++}
++
++@riverpod
++Stream<bool> hasDoneTasks(Ref ref, {required String studentId}) {
++  return ref.watch(boardRepositoryProvider).watchHasDoneTasks(studentId);
++}
+diff --git a/studyboard_mobile/lib/features/board/presentation/board_providers.g.dart b/studyboard_mobile/lib/features/board/presentation/board_providers.g.dart
+new file mode 100644
+index 0000000..e103dfc
+--- /dev/null
++++ b/studyboard_mobile/lib/features/board/presentation/board_providers.g.dart
+@@ -0,0 +1,169 @@
++// GENERATED CODE - DO NOT MODIFY BY HAND
++
++part of 'board_providers.dart';
++
++// **************************************************************************
++// RiverpodGenerator
++// **************************************************************************
++
++// GENERATED CODE - DO NOT MODIFY BY HAND
++// ignore_for_file: type=lint, type=warning
++
++@ProviderFor(boardItems)
++final boardItemsProvider = BoardItemsFamily._();
++
++final class BoardItemsProvider
++    extends
++        $FunctionalProvider<
++          AsyncValue<List<BacklogItem>>,
++          List<BacklogItem>,
++          Stream<List<BacklogItem>>
++        >
++    with
++        $FutureModifier<List<BacklogItem>>,
++        $StreamProvider<List<BacklogItem>> {
++  BoardItemsProvider._({
++    required BoardItemsFamily super.from,
++    required ({String studentId, TaskStatus status}) super.argument,
++  }) : super(
++         retry: null,
++         name: r'boardItemsProvider',
++         isAutoDispose: true,
++         dependencies: null,
++         $allTransitiveDependencies: null,
++       );
++
++  @override
++  String debugGetCreateSourceHash() => _$boardItemsHash();
++
++  @override
++  String toString() {
++    return r'boardItemsProvider'
++        ''
++        '$argument';
++  }
++
++  @$internal
++  @override
++  $StreamProviderElement<List<BacklogItem>> $createElement(
++    $ProviderPointer pointer,
++  ) => $StreamProviderElement(pointer);
++
++  @override
++  Stream<List<BacklogItem>> create(Ref ref) {
++    final argument = this.argument as ({String studentId, TaskStatus status});
++    return boardItems(
++      ref,
++      studentId: argument.studentId,
++      status: argument.status,
++    );
++  }
++
++  @override
++  bool operator ==(Object other) {
++    return other is BoardItemsProvider && other.argument == argument;
++  }
++
++  @override
++  int get hashCode {
++    return argument.hashCode;
++  }
++}
++
++String _$boardItemsHash() => r'2485d51c930aa190f7774f151f046ec0fcc7497d';
++
++final class BoardItemsFamily extends $Family
++    with
++        $FunctionalFamilyOverride<
++          Stream<List<BacklogItem>>,
++          ({String studentId, TaskStatus status})
++        > {
++  BoardItemsFamily._()
++    : super(
++        retry: null,
++        name: r'boardItemsProvider',
++        dependencies: null,
++        $allTransitiveDependencies: null,
++        isAutoDispose: true,
++      );
++
++  BoardItemsProvider call({
++    required String studentId,
++    required TaskStatus status,
++  }) => BoardItemsProvider._(
++    argument: (studentId: studentId, status: status),
++    from: this,
++  );
++
++  @override
++  String toString() => r'boardItemsProvider';
++}
++
++@ProviderFor(hasDoneTasks)
++final hasDoneTasksProvider = HasDoneTasksFamily._();
++
++final class HasDoneTasksProvider
++    extends $FunctionalProvider<AsyncValue<bool>, bool, Stream<bool>>
++    with $FutureModifier<bool>, $StreamProvider<bool> {
++  HasDoneTasksProvider._({
++    required HasDoneTasksFamily super.from,
++    required String super.argument,
++  }) : super(
++         retry: null,
++         name: r'hasDoneTasksProvider',
++         isAutoDispose: true,
++         dependencies: null,
++         $allTransitiveDependencies: null,
++       );
++
++  @override
++  String debugGetCreateSourceHash() => _$hasDoneTasksHash();
++
++  @override
++  String toString() {
++    return r'hasDoneTasksProvider'
++        ''
++        '($argument)';
++  }
++
++  @$internal
++  @override
++  $StreamProviderElement<bool> $createElement($ProviderPointer pointer) =>
++      $StreamProviderElement(pointer);
++
++  @override
++  Stream<bool> create(Ref ref) {
++    final argument = this.argument as String;
++    return hasDoneTasks(ref, studentId: argument);
++  }
++
++  @override
++  bool operator ==(Object other) {
++    return other is HasDoneTasksProvider && other.argument == argument;
++  }
++
++  @override
++  int get hashCode {
++    return argument.hashCode;
++  }
++}
++
++String _$hasDoneTasksHash() => r'3298ceeb0fdaf0d250b77c7c5bf6054978e0c237';
++
++final class HasDoneTasksFamily extends $Family
++    with $FunctionalFamilyOverride<Stream<bool>, String> {
++  HasDoneTasksFamily._()
++    : super(
++        retry: null,
++        name: r'hasDoneTasksProvider',
++        dependencies: null,
++        $allTransitiveDependencies: null,
++        isAutoDispose: true,
++      );
++
++  HasDoneTasksProvider call({required String studentId}) =>
++      HasDoneTasksProvider._(argument: studentId, from: this);
++
++  @override
++  String toString() => r'hasDoneTasksProvider';
++}
+diff --git a/studyboard_mobile/test/core/database/task_dao_board_test.dart b/studyboard_mobile/test/core/database/task_dao_board_test.dart
+new file mode 100644
+index 0000000..a22641e
+--- /dev/null
++++ b/studyboard_mobile/test/core/database/task_dao_board_test.dart
+@@ -0,0 +1,160 @@
++import 'package:drift/drift.dart' hide isNull;
++import 'package:drift/native.dart';
++import 'package:flutter_test/flutter_test.dart';
++import 'package:studyboard_mobile/core/database/app_database.dart';
++import 'package:studyboard_mobile/core/database/daos/task_dao.dart';
++import 'package:studyboard_mobile/features/board/domain/task_status.dart';
++
++void main() {
++  late AppDatabase db;
++  late TaskDao taskDao;
++
++  setUp(() {
++    db = AppDatabase.forTesting(NativeDatabase.memory());
++    taskDao = db.taskDao;
++  });
++
++  tearDown(() async => db.close());
++
++  Future<void> seedSubjectTopicLesson({
++    String subjectId = 's1',
++    String topicId = 't1',
++    String lessonId = 'l1',
++    String contentTrack = 'theory',
++    int topicOrder = 0,
++    int lessonOrder = 0,
++  }) async {
++    await db
++        .into(db.subjectsTable)
++        .insertOnConflictUpdate(
++          SubjectsTableCompanion.insert(id: subjectId, name: 'A/L Chemistry'),
++        );
++    await db
++        .into(db.topicsTable)
++        .insertOnConflictUpdate(
++          TopicsTableCompanion.insert(
++            id: topicId,
++            subjectId: subjectId,
++            title: 'Topic $topicId',
++            orderIndex: Value(topicOrder),
++          ),
++        );
++    await db
++        .into(db.lessonsTable)
++        .insertOnConflictUpdate(
++          LessonsTableCompanion.insert(
++            id: lessonId,
++            topicId: topicId,
++            title: 'Lesson $lessonId',
++            contentText: 'text',
++            contentTrack: contentTrack,
++            orderIndex: Value(lessonOrder),
++          ),
++        );
++  }
++
++  group('watchTasksByStatus', () {
++    test('returns only tasks with matching status and correct joins', () async {
++      await seedSubjectTopicLesson();
++      await taskDao.createLessonTasksForStudent('student-1', ['l1']);
++
++      final tasks = await taskDao.watchBacklogTasks('student-1').first;
++      await taskDao.pullToTodo(tasks.first.task.id);
++
++      final rows = await taskDao
++          .watchTasksByStatus('student-1', TaskStatus.todo)
++          .first;
++
++      expect(rows.length, 1);
++      expect(rows.first.lesson.title, 'Lesson l1');
++      expect(rows.first.topic.title, 'Topic t1');
++      expect(rows.first.task.taskStatus, TaskStatus.todo.toDbString());
++    });
++
++    test('excludes tasks with different status', () async {
++      await seedSubjectTopicLesson();
++      await taskDao.createLessonTasksForStudent('student-1', ['l1']);
++
++      final rows = await taskDao
++          .watchTasksByStatus('student-1', TaskStatus.todo)
++          .first;
++
++      expect(rows, isEmpty);
++    });
++
++    test('emits updated list when task status changes', () async {
++      await seedSubjectTopicLesson();
++      await taskDao.createLessonTasksForStudent('student-1', ['l1']);
++
++      final backlogTasks = await taskDao.watchBacklogTasks('student-1').first;
++      await taskDao.pullToTodo(backlogTasks.first.task.id);
++
++      final stream = taskDao.watchTasksByStatus('student-1', TaskStatus.todo);
++
++      final initial = await stream.first;
++      expect(initial.length, 1);
++
++      await taskDao.startTask(initial.first.task.id);
++
++      final updated = await stream.first;
++      expect(updated, isEmpty);
++    });
++  });
++
++  group('watchHasDoneTasks', () {
++    test('returns false when no done tasks exist', () async {
++      await seedSubjectTopicLesson();
++      await taskDao.createLessonTasksForStudent('student-1', ['l1']);
++
++      final result = await taskDao.watchHasDoneTasks('student-1').first;
++
++      expect(result, isFalse);
++    });
++
++    test('returns true after markTaskComplete() is called', () async {
++      await seedSubjectTopicLesson();
++      await taskDao.createLessonTasksForStudent('student-1', ['l1']);
++
++      final tasks = await taskDao.watchBacklogTasks('student-1').first;
++      await taskDao.markTaskComplete(tasks.first.task.id);
++
++      final result = await taskDao.watchHasDoneTasks('student-1').first;
++
++      expect(result, isTrue);
++    });
++  });
++
++  group('moveToBacklog', () {
++    test(
++      'writes backlog status to Drift and inserts sync queue entry',
++      () async {
++        await seedSubjectTopicLesson();
++        await taskDao.createLessonTasksForStudent('student-1', ['l1']);
++
++        final tasks = await taskDao.watchBacklogTasks('student-1').first;
++        await taskDao.pullToTodo(tasks.first.task.id);
++        final taskId = tasks.first.task.id;
++
++        await taskDao.moveToBacklog(taskId);
++
++        final backlog = await taskDao.watchBacklogTasks('student-1').first;
++        expect(backlog.length, 1);
++        expect(backlog.first.task.taskStatus, TaskStatus.backlog.toDbString());
++
++        final syncEntries = await db.select(db.syncQueueTable).get();
++        final moveEntry = syncEntries.firstWhere(
++          (e) => e.entityId == taskId && e.entityType == 'task_status',
++          orElse: () => throw StateError('No sync entry for moveToBacklog'),
++        );
++        expect(moveEntry.operation, 'upsert');
++      },
++    );
++
++    test('is a no-op when taskId not found', () async {
++      await taskDao.moveToBacklog('non-existent-task-id');
++
++      final syncEntries = await db.select(db.syncQueueTable).get();
++      expect(syncEntries, isEmpty);
++    });
++  });
++}
+diff --git a/studyboard_mobile/test/features/board/presentation/board_screen_test.dart b/studyboard_mobile/test/features/board/presentation/board_screen_test.dart
+new file mode 100644
+index 0000000..46cacb7
+--- /dev/null
++++ b/studyboard_mobile/test/features/board/presentation/board_screen_test.dart
+@@ -0,0 +1,104 @@
++import 'package:flutter/material.dart';
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++import 'package:flutter_test/flutter_test.dart';
++import 'package:mocktail/mocktail.dart';
++import 'package:studyboard_mobile/core/theme/app_theme.dart';
++import 'package:studyboard_mobile/features/auth/domain/student.dart';
++import 'package:studyboard_mobile/features/auth/presentation/auth_notifier.dart';
++import 'package:studyboard_mobile/features/auth/presentation/auth_state.dart';
++import 'package:studyboard_mobile/features/board/data/board_provider.dart';
++import 'package:studyboard_mobile/features/board/domain/board_repository.dart';
++import 'package:studyboard_mobile/features/board/domain/task_status.dart';
++import 'package:studyboard_mobile/features/board/presentation/board_screen.dart';
++
++class _MockBoardRepository extends Mock implements BoardRepository {}
++
++class _FakeAuthNotifier extends AuthNotifier {
++  @override
++  Future<AuthState> build() async {
++    return AuthState.authenticated(student: _fakeStudent());
++  }
++}
++
++Student _fakeStudent() => const Student(
++  id: 'user-abc',
++  name: 'Test User',
++  email: 'test@example.com',
++  district: '',
++  school: '',
++  notificationsEnabled: true,
++  lastActiveAt: '2026-04-18T00:00:00.000Z',
++  createdAt: '2026-04-18T00:00:00.000Z',
++);
++
++Widget _wrapBoard({required _MockBoardRepository boardRepo}) {
++  return ProviderScope(
++    overrides: [
++      authProvider.overrideWith(_FakeAuthNotifier.new),
++      boardRepositoryProvider.overrideWith((_) => boardRepo),
++    ],
++    child: MaterialApp(
++      theme: AppTheme.light(),
++      home: const BoardScreen(),
++    ),
++  );
++}
++
++void main() {
++  setUpAll(() {
++    registerFallbackValue(TaskStatus.backlog);
++  });
++
++  late _MockBoardRepository mockBoardRepo;
++
++  setUp(() {
++    mockBoardRepo = _MockBoardRepository();
++    when(
++      () => mockBoardRepo.watchBoardItems(any(), any()),
++    ).thenAnswer((_) => Stream.value([]));
++    when(
++      () => mockBoardRepo.watchHasDoneTasks(any()),
++    ).thenAnswer((_) => Stream.value(false));
++  });
++
++  group('BoardScreen', () {
++    testWidgets(
++      'shows In Progress empty state when no in_progress tasks',
++      (tester) async {
++        await tester.pumpWidget(_wrapBoard(boardRepo: mockBoardRepo));
++        await tester.pumpAndSettle();
++
++        expect(
++          find.text('Move a task to To-Do to get started'),
++          findsOneWidget,
++        );
++      },
++    );
++
++    testWidgets(
++      'empty state has Go to Backlog FilledButton',
++      (tester) async {
++        await tester.pumpWidget(_wrapBoard(boardRepo: mockBoardRepo));
++        await tester.pumpAndSettle();
++
++        expect(find.text('Go to Backlog'), findsOneWidget);
++        expect(
++          find.widgetWithText(FilledButton, 'Go to Backlog'),
++          findsOneWidget,
++        );
++      },
++    );
++
++    testWidgets(
++      'Done tab is not visible when no done tasks',
++      (tester) async {
++        await tester.pumpWidget(_wrapBoard(boardRepo: mockBoardRepo));
++        await tester.pumpAndSettle();
++
++        expect(find.text('Done'), findsNothing);
++        expect(find.text('To-Do'), findsOneWidget);
++        expect(find.text('In Progress'), findsOneWidget);
++      },
++    );
++  });
++}

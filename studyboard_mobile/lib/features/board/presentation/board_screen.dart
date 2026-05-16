@@ -281,7 +281,8 @@ class _BoardColumnState extends ConsumerState<_BoardColumn> {
   VoidCallback? _tapHandlerFor(BacklogItem item) {
     return switch (item.taskStatus) {
       TaskStatus.todo => () => _showTodoActionSheet(item),
-      TaskStatus.inProgress => () => _showInProgressActionSheet(item),
+      TaskStatus.inProgress || TaskStatus.reopened =>
+        () => _showInProgressActionSheet(item),
       TaskStatus.done => null,
       TaskStatus.backlog => null,
     };

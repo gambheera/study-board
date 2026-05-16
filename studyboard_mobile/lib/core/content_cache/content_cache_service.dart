@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:studyboard_mobile/core/database/daos/content_dao.dart';
@@ -15,11 +13,13 @@ class ContentCacheService {
 
   Future<void> prefetchAll() async {
     final urls = await _dao.getAllImageUrlsInTopicOrder();
-    for (final url in urls) {
-      unawaited(
-        _cacheManager.downloadFile(url).then<void>((_) {}).catchError((_) {}),
-      );
-    }
+    await Future.wait(
+      urls.map((url) async {
+        try {
+          await _cacheManager.downloadFile(url);
+        } on Exception catch (_) {}
+      }),
+    );
   }
 
   Future<bool> hasContentSeeded() => _dao.hasAnyLessons();

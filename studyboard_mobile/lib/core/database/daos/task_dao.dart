@@ -72,7 +72,7 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
           lessonTasksTable,
         )..where((t) => t.id.equals(taskId))).write(
           LessonTasksTableCompanion(
-            taskStatus: Value(TaskStatus.inProgress.toDbString()),
+            taskStatus: Value(TaskStatus.reopened.toDbString()),
             updatedAt: Value(now),
           ),
         );
@@ -80,13 +80,14 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
     await into(syncQueueTable).insert(
       SyncQueueTableCompanion.insert(
         id: _uuid.v4(),
-        entityType: 'task_status',
+        entityType: 'lesson_task',
         entityId: taskId,
         operation: 'upsert',
         payload: jsonEncode({
-          'task_status': TaskStatus.inProgress.toDbString(),
+          'id': taskId,
+          'task_status': TaskStatus.reopened.toDbString(),
+          'updated_at': now,
           'context': 'reset',
-          'task_id': taskId,
         }),
         createdAt: now,
       ),
@@ -278,6 +279,37 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
             OrderingTerm.asc(topicsTable.orderIndex),
             OrderingTerm.asc(lessonsTable.orderIndex),
           ]))
+        .watch()
+        .map(
+          (rows) => rows
+              .map(
+                (r) => BacklogRow(
+                  task: r.readTable(lessonTasksTable),
+                  lesson: r.readTable(lessonsTable),
+                  topic: r.readTable(topicsTable),
+                ),
+              )
+              .toList(),
+        );
+  }
+
+  Stream<List<BacklogRow>> watchInProgressTasks(String studentId) {
+    final condition =
+        lessonTasksTable.studentId.equals(studentId) &
+        lessonTasksTable.taskStatus.isIn(['in_progress', 'reopened']);
+
+    return (select(lessonTasksTable).join([
+            innerJoin(
+              lessonsTable,
+              lessonsTable.id.equalsExp(lessonTasksTable.lessonId),
+            ),
+            innerJoin(
+              topicsTable,
+              topicsTable.id.equalsExp(lessonsTable.topicId),
+            ),
+          ])
+          ..where(condition)
+          ..orderBy([OrderingTerm.desc(lessonTasksTable.updatedAt)]))
         .watch()
         .map(
           (rows) => rows

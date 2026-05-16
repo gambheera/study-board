@@ -11,7 +11,6 @@ import 'package:studyboard_mobile/features/backlog/presentation/backlog_items_pr
 import 'package:studyboard_mobile/features/backlog/presentation/widgets/skeleton_task_card.dart';
 import 'package:studyboard_mobile/features/backlog/presentation/widgets/task_card.dart';
 import 'package:studyboard_mobile/features/board/data/board_provider.dart';
-import 'package:studyboard_mobile/features/board/domain/board_repository.dart';
 
 class BacklogScreen extends ConsumerStatefulWidget {
   const BacklogScreen({super.key});
@@ -67,8 +66,6 @@ class _BacklogScreenState extends ConsumerState<BacklogScreen>
     final itemsAsync = ref.watch(
       backlogItemsProvider(studentId: studentId, contentTrack: selectedTrack),
     );
-    final boardRepo = ref.read(boardRepositoryProvider);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Backlog'),
@@ -127,28 +124,47 @@ class _BacklogScreenState extends ConsumerState<BacklogScreen>
           }
           return _AnimatedBacklogList(
             items: items,
-            onTap: (item) => _showBacklogActionSheet(context, boardRepo, item),
+            onTap: (item) => _showBacklogActionSheet(context, item),
           );
         },
         loading: () => ListView(
           padding: const EdgeInsets.only(top: 8, bottom: 16),
           children: List.generate(3, (_) => const SkeletonTaskCard()),
         ),
-        error: (_, _) => Center(
-          child: Text(
-            'Failed to load tasks.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ),
+        error: (_, _) {
+          final seededAsync = ref.watch(contentSeededProvider);
+          return seededAsync.maybeWhen(
+            data: (seeded) => seeded
+                ? Center(
+                    child: Text(
+                      'Failed to load tasks.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  )
+                : const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'Content not yet downloaded. '
+                        'Connect to the internet to load your lessons.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+            orElse: () => Center(
+              child: Text(
+                'Failed to load tasks.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  void _showBacklogActionSheet(
-    BuildContext context,
-    BoardRepository boardRepo,
-    BacklogItem item,
-  ) {
+  void _showBacklogActionSheet(BuildContext context, BacklogItem item) {
+    final boardRepo = ref.read(boardRepositoryProvider);
     unawaited(
       showModalBottomSheet<void>(
         context: context,
@@ -161,13 +177,13 @@ class _BacklogScreenState extends ConsumerState<BacklogScreen>
               children: [
                 Text(
                   item.lessonTitle,
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: Theme.of(sheetCtx).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Topic / ${item.topicTitle}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(
+                  style: Theme.of(sheetCtx).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(sheetCtx).colorScheme.onSurface.withValues(
                       alpha: 0.6,
                     ),
                   ),
@@ -269,10 +285,16 @@ class _AnimatedBacklogListState extends State<_AnimatedBacklogList> {
     }
     for (var i = 0; i < newItems.length; i++) {
       if (!_items.any((item) => item.taskId == newItems[i].taskId)) {
-        _items.insert(i, newItems[i]);
+        var insertAt = 0;
+        for (var j = 0; j < i; j++) {
+          if (_items.any((item) => item.taskId == newItems[j].taskId)) {
+            insertAt++;
+          }
+        }
+        _items.insert(insertAt, newItems[i]);
         hasStructuralChanges = true;
         _listKey.currentState?.insertItem(
-          i,
+          insertAt,
           duration: const Duration(milliseconds: 200),
         );
       }

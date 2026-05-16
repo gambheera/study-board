@@ -20,7 +20,7 @@ final class ContentSyncNotifierProvider
         argument: null,
         retry: null,
         name: r'contentSyncProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -34,7 +34,7 @@ final class ContentSyncNotifierProvider
 }
 
 String _$contentSyncNotifierHash() =>
-    r'001a1b5aea529e59b9d2a96131e2ccce61a66645';
+    r'cffa1fae6ae86a6db63dfbccc8b66c8912386551';
 
 abstract class _$ContentSyncNotifier extends $AsyncNotifier<void> {
   FutureOr<void> build();

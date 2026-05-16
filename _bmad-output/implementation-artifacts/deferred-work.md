@@ -1,5 +1,37 @@
 # Deferred Work
 
+## Deferred from: code review of 4-3-quiz-failure-pivot-question-and-recovery-path (2026-05-11)
+
+- `total == 0` inside `advanceOrComplete` causes silent UI hang — state stays `QuizActive` with Continue button tappable but inert; impossible in practice since `build()` requires at least one question to succeed (`quiz_notifier.dart`).
+- Floating-point `passThreshold` could misclassify pass/fail on non-power-of-2 score fractions — theoretical only for current integer-fraction scoring against whole-number thresholds (`quiz_notifier.dart`).
+- `_AnswerChip` renders blank if `correctOption` stored value is not in `{'a','b','c','d'}` — pre-existing data-quality risk; related to existing correctOption case-normalisation defer item (`quiz_fail_screen.dart`).
+- `getAttemptsForLesson` called after `saveAttempt` without a wrapping transaction — a concurrent write between the two calls could inflate `failedAttemptCount` by 1, causing the 3rd-attempt note to appear one failure early; extremely rare in practice (`quiz_notifier.dart`).
+
+## Deferred from: code review of 4-2-quiz-pass-task-completion-gate-and-dopamine-moment (2026-05-11)
+
+- markTaskComplete and saveAttempt run in separate Drift transactions — partial failure leaves task done with no attempt record (`quiz_notifier.dart:74-90`). Spec explicitly defers Drift write error handling; "Drift writes are expected to succeed" per dev notes.
+- lessonTitle silently degrades to empty string on deep-link or process restart — GoRouter `extra` is not persisted across process death; pass screen renders " — complete." with no lesson name (`router.dart:109`). GoRouter architectural limitation; not addressable without a separate lookup or re-fetch mechanism.
+- `_showLeaveDialog` in QuizScreen captures outer BuildContext in the Leave dialog callback without a `context.mounted` guard (`quiz_screen.dart:_showLeaveDialog`). Very low practical risk since the dialog blocks UI; pre-existing Flutter pattern.
+- `getQuizContextForTask` uses `getSingleOrNull()` which throws unguarded `StateError` (not `Exception`) if >1 `lessonTasksTable` row matches `taskId`; not caught by the `on Exception` handler in `QuizRepositoryImpl` (`quiz_dao.dart:getQuizContextForTask`). DB integrity guarantee; taskId uniqueness enforced by app data model.
+
+## Deferred from: code review of 4-1-quiz-screen-and-question-engine (2026-05-07)
+
+- `sagGreen` misspelling in `app_colors.dart` perpetuated into new quiz code (`quiz_answer_option.dart:64`) — rename `sagGreen` → `sageGreen` across all files in a dedicated cleanup pass.
+- `toSet().toList()` in `getAllImageUrlsInTopicOrder` implicitly relies on Dart `LinkedHashSet` insertion-order preservation — replace with an explicit seen-set loop to make ordering intent explicit (`content_dao.dart:43`).
+- `result.fold((_) => null, ...)` in `ContentSyncNotifier` silences all sync failures with no log, no user feedback, and no state update — intentional V1 design decision; add error surfacing when sync reliability is hardened in Epic 5.
+- `QuizPassScreen`/`QuizFailScreen` extend `ConsumerWidget` without using `ref` — intentional scaffolding; Stories 4.2/4.3 will add Riverpod calls to these screens.
+- `ref.listen` double-navigation micro-race: if `QuizScreen` rebuilds while `QuizCompleted` is still cached (e.g., during GoRouter transition), `context.go` fires a second time — guarded by `context.mounted`; GoRouter stack replacement disposes the auto-dispose provider; revisit if navigation flicker is reported (`quiz_screen.dart:23`).
+- `correctOption` case not normalised on Supabase ingest — if Supabase returns uppercase `'A'`–`'D'`, every answer scores wrong silently; add `.toLowerCase()` in `content_repository_impl.dart` when ingest is hardened.
+- `getQuizContextForTask` 4-way JOIN fetches full row data from all four tables to project only `lessonId` and `passThreshold` — consider a raw SQL projection query for performance when quiz DAO is optimised (`quiz_dao.dart:66`).
+- `saveAttempt` sync-queue JSON payload omits `score` and `passed` fields — Stories 4.2/4.3 are responsible for recording quiz attempts; fix payload when that work lands (`quiz_dao.dart:44`).
+
+## Deferred from: code review of 3-3-content-image-pre-fetch-and-background-sync (2026-05-03)
+
+- Connectivity guard in `ContentSyncNotifier.build()` uses a double-negative (`!connectivity.any((r) => r != ConnectivityResult.none)`) — logic is correct but high maintenance-bug risk; extract to a named helper `_isConnected(List)` when the sync layer is hardened in Story 5.1.
+- No content-version change detection — `syncContent` runs unconditionally on every app open regardless of whether the remote `content_version` has changed; explicit V1 design decision per dev notes ("unconditional sync satisfies V1 requirement"); implement version-gated sync in Story 4.x / 5.x.
+- `_applyDiff` O(n²) removal and insertion passes (`newItems.any(...)` inside linear loops) — bounded by chemistry syllabus size (~300 lessons); revisit with indexed lookups if list size or stream emission frequency grows in a future subject expansion.
+- Orphaned fire-and-forget `downloadFile` futures after `ContentSyncNotifier` provider disposal — `unawaited` futures have no lifecycle tie to the Riverpod container; low production impact, but causes "pending timers" warnings in widget tests; consider tracking in-flight futures with `CancelToken` if test-suite stability becomes an issue.
+
 ## Deferred from: code review of 3-2-lesson-content-screen-and-rich-media (2026-05-02)
 
 - `clock: ^1.1.2` appears in pubspec.yaml diff from uncommitted prior-story changes; not introduced by story 3-2; verify origin and move to `dev_dependencies` if test-only.
@@ -29,7 +61,7 @@
 ## Deferred from: code review of 2-2-backlog-view-full-syllabus-and-taskcard-component (2026-04-28)
 
 - `TaskStatusX.fromString` throws `ArgumentError` for unknown DB status strings — pre-existing from Story 1.1 (already tracked below); now also reachable via `BacklogRepositoryImpl.watchBacklogTasks` stream, though the DAO query filters to `backlog` status making the risk theoretical until a new status string is added.
-- Re-opened state in `TaskCard` — `TaskStatus` enum has no `reopened` value by design; `taskReopened` color token exists but is unused; full re-opened rendering (Dusty Rose + refresh icon) is Story 4.3 scope.
+- ~~Re-opened state in `TaskCard`~~ — **CLOSED by Story 4.3**: `TaskStatus.reopened` added, `TaskCard` renders Dusty Rose border + refresh icon + "Re-opened" label.
 - `_RouterNotifier` lifecycle in GoRouter+Riverpod — `ChangeNotifier` disposed via `ref.onDispose`; `Ref` listener tied to `goRouterProvider` lifetime; theoretical risk if provider ever disposes and recreates; standard pattern for this stack.
 - `BacklogRow` class lives in `task_dao.dart` (data layer) despite naming a backlog-domain concept — spec-defined placement; refactor to private impl detail if the join struct is ever reused.
 - `watchBacklogTasks` single `condition` variable combines predicates on two different tables — correct SQL, readability/maintenance opinion; separate base from join filter when adding further conditions.
@@ -64,7 +96,7 @@
 - `PlatformDispatcher.onError` always returns `true`, suppressing fatal errors from the platform OS — pre-existing from Story 1.1; revisit for crash-diagnostic compliance.
 - `_selectedIndex` returns 0 for any path not starting with `/dashboard` or `/backlog` — safe for current three-route shell; becomes incorrect when deep-links or non-shell routes are introduced.
 - `goRouterProvider` calls `router.dispose()` on Riverpod disposal — harmless in production (single `ProviderScope`); can cause disposed-router errors in widget tests that use nested `ProviderScope` overrides.
-- `taskReopened` ColorScheme token defined without a matching `TaskStatus.reopened` enum value — intentional forward-looking design; add the enum variant when the reopened workflow is implemented.
+- ~~`taskReopened` ColorScheme token~~ — **CLOSED by Story 4.3**: `TaskStatus.reopened` enum value added; token is now in active use.
 - `TaskStatusX.fromString` throws `ArgumentError` for unrecognised DB status values and wraps them as `NetworkFailure` — pre-existing from Story 1.1; fix the error classification when the status-parsing layer is hardened.
 - `AppLocalizations.of(context)!` force-unwraps in generated l10n code — pre-existing from Story 1.1; guarded in practice by `MaterialApp` delegate setup.
 - `google_fonts` package retained alongside bundled fonts (needed for `allowRuntimeFetching = false`); risk of future misuse via `GoogleFonts.*()` calls instead of the registered font family.

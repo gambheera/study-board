@@ -40,7 +40,7 @@ class ContentDao extends DatabaseAccessor<AppDatabase> with _$ContentDaoMixin {
         if (url != null) urls.add(url);
       }
     }
-    return urls;
+    return urls.toSet().toList();
   }
 
   Future<bool> hasAnyLessons() async {

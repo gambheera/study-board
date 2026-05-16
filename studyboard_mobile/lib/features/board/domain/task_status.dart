@@ -1,4 +1,4 @@
-enum TaskStatus { backlog, todo, inProgress, done }
+enum TaskStatus { backlog, todo, inProgress, done, reopened }
 
 extension TaskStatusX on TaskStatus {
   String toDbString() {
@@ -7,6 +7,7 @@ extension TaskStatusX on TaskStatus {
       TaskStatus.todo => 'todo',
       TaskStatus.inProgress => 'in_progress',
       TaskStatus.done => 'done',
+      TaskStatus.reopened => 'reopened',
     };
   }
 
@@ -16,6 +17,7 @@ extension TaskStatusX on TaskStatus {
       'todo' => TaskStatus.todo,
       'in_progress' => TaskStatus.inProgress,
       'done' => TaskStatus.done,
+      'reopened' => TaskStatus.reopened,
       _ => throw ArgumentError('Unknown TaskStatus: $value'),
     };
   }

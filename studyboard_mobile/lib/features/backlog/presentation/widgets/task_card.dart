@@ -83,6 +83,7 @@ class TaskCard extends StatelessWidget {
       TaskStatus.todo => colorScheme.taskBacklog,
       TaskStatus.inProgress => colorScheme.taskInProgress,
       TaskStatus.done => colorScheme.taskDone,
+      TaskStatus.reopened => colorScheme.taskReopened,
     };
   }
 
@@ -92,6 +93,7 @@ class TaskCard extends StatelessWidget {
       TaskStatus.todo => Icons.arrow_forward,
       TaskStatus.inProgress => Icons.play_arrow,
       TaskStatus.done => Icons.check_circle,
+      TaskStatus.reopened => Icons.refresh,
     };
   }
 
@@ -101,6 +103,7 @@ class TaskCard extends StatelessWidget {
       TaskStatus.todo => 'To-Do',
       TaskStatus.inProgress => 'In Progress',
       TaskStatus.done => 'Done',
+      TaskStatus.reopened => 'Re-opened',
     };
   }
 }

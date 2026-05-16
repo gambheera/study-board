@@ -9,7 +9,7 @@ import 'package:studyboard_mobile/features/board/data/content_provider.dart';
 
 part 'content_sync_notifier.g.dart';
 
-@riverpod
+@Riverpod(keepAlive: true)
 class ContentSyncNotifier extends _$ContentSyncNotifier {
   @override
   Future<void> build() async {
@@ -20,10 +20,15 @@ class ContentSyncNotifier extends _$ContentSyncNotifier {
     final connectivity = await Connectivity().checkConnectivity();
     if (!connectivity.any((r) => r != ConnectivityResult.none)) return;
 
-    await ref.read(contentRepositoryProvider).syncContent(student.id);
+    final result =
+        await ref.read(contentRepositoryProvider).syncContent(student.id);
 
-    unawaited(
-      ref.read(contentCacheServiceProvider).prefetchAll().catchError((_) {}),
+    result.fold(
+      (_) => null,
+      (_) {
+        ref.invalidate(contentSeededProvider);
+        unawaited(ref.read(contentCacheServiceProvider).prefetchAll());
+      },
     );
   }
 }

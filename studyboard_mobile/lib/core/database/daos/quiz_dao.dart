@@ -2,8 +2,12 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:studyboard_mobile/core/database/app_database.dart';
+import 'package:studyboard_mobile/core/database/tables/lesson_tasks_table.dart';
+import 'package:studyboard_mobile/core/database/tables/lessons_table.dart';
 import 'package:studyboard_mobile/core/database/tables/quiz_attempts_table.dart';
 import 'package:studyboard_mobile/core/database/tables/quiz_questions_table.dart';
+import 'package:studyboard_mobile/core/database/tables/subjects_table.dart';
+import 'package:studyboard_mobile/core/database/tables/topics_table.dart';
 import 'package:studyboard_mobile/core/sync/sync_queue_table.dart';
 import 'package:uuid/uuid.dart';
 
@@ -11,7 +15,17 @@ part 'quiz_dao.g.dart';
 
 const _uuid = Uuid();
 
-@DriftAccessor(tables: [QuizQuestionsTable, QuizAttemptsTable, SyncQueueTable])
+@DriftAccessor(
+  tables: [
+    QuizQuestionsTable,
+    QuizAttemptsTable,
+    SyncQueueTable,
+    LessonTasksTable,
+    LessonsTable,
+    TopicsTable,
+    SubjectsTable,
+  ],
+)
 class QuizDao extends DatabaseAccessor<AppDatabase> with _$QuizDaoMixin {
   QuizDao(super.attachedDatabase);
 
@@ -36,6 +50,9 @@ class QuizDao extends DatabaseAccessor<AppDatabase> with _$QuizDaoMixin {
             'quiz_attempt_id': companion.id.value,
             'student_id': companion.studentId.value,
             'lesson_id': companion.lessonId.value,
+            'score': companion.score.value,
+            'passed': companion.passed.value,
+            'attempted_at': companion.attemptedAt.value,
           }),
           createdAt: now,
         ));
@@ -51,4 +68,33 @@ class QuizDao extends DatabaseAccessor<AppDatabase> with _$QuizDaoMixin {
                   t.studentId.equals(studentId) & t.lessonId.equals(lessonId),
             ))
           .get();
+
+  Future<({String lessonId, double passThreshold, String lessonTitle})?>
+      getQuizContextForTask(
+    String taskId,
+  ) async {
+    final query = select(lessonTasksTable).join([
+      innerJoin(
+        lessonsTable,
+        lessonsTable.id.equalsExp(lessonTasksTable.lessonId),
+      ),
+      innerJoin(
+        topicsTable,
+        topicsTable.id.equalsExp(lessonsTable.topicId),
+      ),
+      innerJoin(
+        subjectsTable,
+        subjectsTable.id.equalsExp(topicsTable.subjectId),
+      ),
+    ])
+      ..where(lessonTasksTable.id.equals(taskId));
+
+    final row = await query.getSingleOrNull();
+    if (row == null) return null;
+    return (
+      lessonId: row.readTable(lessonTasksTable).lessonId,
+      passThreshold: row.readTable(subjectsTable).quizPassThreshold,
+      lessonTitle: row.readTable(lessonsTable).title,
+    );
+  }
 }

@@ -1,6 +1,6 @@
 # Story 3.3: Content Image Pre-fetch & Background Sync
 
-Status: review
+Status: done
 
 ## Story
 
@@ -366,6 +366,26 @@ claude-sonnet-4-6
 - studyboard_mobile/lib/core/database/daos/content_dao.dart
 - studyboard_mobile/lib/features/board/presentation/content_sync_notifier.dart
 - studyboard_mobile/lib/features/backlog/presentation/backlog_screen.dart
+
+### Review Findings
+
+- [x] [Review][Decision] ContentSyncNotifier is auto-dispose — fixed: changed to `@Riverpod(keepAlive: true)`, updated generated file
+- [x] [Review][Decision] `prefetchAll` fires all downloads concurrently — fixed: changed to sequential `await` per URL with `on Object catch`
+- [x] [Review][Patch] Duplicate test name and missing second test body — dismissed: false positive from truncated diff; test file is clean
+- [x] [Review][Patch] `DefaultCacheManager()` should use `DefaultCacheManager.instance` — dismissed: `DefaultCacheManager()` is already a factory singleton
+- [x] [Review][Patch] `syncContent` `Either` result discarded — fixed: fold result; prefetch only fires on success
+- [x] [Review][Patch] `contentSeededProvider` never invalidated after sync — fixed: `ref.invalidate(contentSeededProvider)` on sync success
+- [x] [Review][Patch] `_applyDiff` index calculation wrong after in-place removals — fixed: compute `insertAt` from surviving items
+- [x] [Review][Patch] `_applyDiff` null `AnimatedListState` causes invisible state divergence — dismissed: existing fallback is correct; no desync possible when list isn't mounted
+- [x] [Review][Patch] `boardRepo` captured via `ref.read` in `build()` — fixed: moved to point of use inside `_showBacklogActionSheet`
+- [x] [Review][Patch] Outer `context` used in sheet builder for `Theme.of` — fixed: all sheet styles now use `Theme.of(sheetCtx)`
+- [x] [Review][Patch] `getAllImageUrlsInTopicOrder` returns duplicate URLs — fixed: `.toSet().toList()` before return
+- [x] [Review][Patch] `prefetchAll` test assertions unreliable — fixed by sequential prefetchAll; `await prefetchAll()` now completes all downloads before returning
+- [x] [Review][Patch] AC6 "Content not yet downloaded" message unreachable via stream error path — fixed: error arm now watches `contentSeededProvider`
+- [x] [Review][Defer] Connectivity check double-negative — logic correct, future maintenance hazard [lib/features/board/presentation/content_sync_notifier.dart:21] — deferred, pre-existing
+- [x] [Review][Defer] No content-version change detection — unconditional sync is explicit V1 design decision — deferred, pre-existing
+- [x] [Review][Defer] `_applyDiff` O(n²) scan with live Drift stream — bounded list, performance not correctness — deferred, pre-existing
+- [x] [Review][Defer] Orphaned fire-and-forget downloads after provider disposal — test suite pollution, low prod impact — deferred, pre-existing
 
 ## Change Log
 

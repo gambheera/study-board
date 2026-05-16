@@ -13,6 +13,9 @@ import 'package:studyboard_mobile/features/board/presentation/content_sync_notif
 import 'package:studyboard_mobile/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:studyboard_mobile/features/lesson/presentation/curiosity_screen.dart';
 import 'package:studyboard_mobile/features/lesson/presentation/lesson_content_screen.dart';
+import 'package:studyboard_mobile/features/quiz/presentation/quiz_fail_screen.dart';
+import 'package:studyboard_mobile/features/quiz/presentation/quiz_pass_screen.dart';
+import 'package:studyboard_mobile/features/quiz/presentation/quiz_screen.dart';
 import 'package:studyboard_mobile/features/sessions/presentation/session_tracker_notifier.dart';
 
 class _RouterNotifier extends ChangeNotifier {
@@ -94,10 +97,47 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/quiz/:taskId',
-        // Story 4.1 will replace this stub with the real QuizScreen
-        pageBuilder: (_, _) => const MaterialPage(
-          child: Scaffold(body: Center(child: Text('Quiz coming soon'))),
-        ),
+        pageBuilder: (context, state) {
+          final taskId = state.pathParameters['taskId']!;
+          return MaterialPage(child: QuizScreen(taskId: taskId));
+        },
+        routes: [
+          GoRoute(
+            path: 'pass',
+            pageBuilder: (context, state) {
+              final taskId = state.pathParameters['taskId']!;
+              final extra = state.extra;
+              final lessonTitle = extra is String ? extra : '';
+              return MaterialPage(
+                child: QuizPassScreen(
+                  taskId: taskId,
+                  lessonTitle: lessonTitle,
+                ),
+              );
+            },
+          ),
+          GoRoute(
+            path: 'fail',
+            pageBuilder: (context, state) {
+              final taskId = state.pathParameters['taskId']!;
+              final extra = state.extra as Map<String, dynamic>?;
+              return MaterialPage(
+                child: QuizFailScreen(
+                  taskId: taskId,
+                  pivotQuestionText:
+                      extra?['pivotQuestionText'] as String? ?? '',
+                  correctOptionText:
+                      extra?['correctOptionText'] as String? ?? '',
+                  studentOptionText:
+                      extra?['studentOptionText'] as String? ?? '',
+                  failedAttemptCount:
+                      extra?['failedAttemptCount'] as int? ?? 0,
+                  lessonTitle: extra?['lessonTitle'] as String? ?? '',
+                ),
+              );
+            },
+          ),
+        ],
       ),
       ShellRoute(
         builder: (context, state, child) => ScaffoldWithNavBar(child: child),

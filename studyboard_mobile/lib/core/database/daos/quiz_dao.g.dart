@@ -9,6 +9,11 @@ mixin _$QuizDaoMixin on DatabaseAccessor<AppDatabase> {
   $QuizAttemptsTableTable get quizAttemptsTable =>
       attachedDatabase.quizAttemptsTable;
   $SyncQueueTableTable get syncQueueTable => attachedDatabase.syncQueueTable;
+  $LessonTasksTableTable get lessonTasksTable =>
+      attachedDatabase.lessonTasksTable;
+  $LessonsTableTable get lessonsTable => attachedDatabase.lessonsTable;
+  $TopicsTableTable get topicsTable => attachedDatabase.topicsTable;
+  $SubjectsTableTable get subjectsTable => attachedDatabase.subjectsTable;
   QuizDaoManager get managers => QuizDaoManager(this);
 }
 
@@ -30,4 +35,15 @@ class QuizDaoManager {
         _db.attachedDatabase,
         _db.syncQueueTable,
       );
+  $$LessonTasksTableTableTableManager get lessonTasksTable =>
+      $$LessonTasksTableTableTableManager(
+        _db.attachedDatabase,
+        _db.lessonTasksTable,
+      );
+  $$LessonsTableTableTableManager get lessonsTable =>
+      $$LessonsTableTableTableManager(_db.attachedDatabase, _db.lessonsTable);
+  $$TopicsTableTableTableManager get topicsTable =>
+      $$TopicsTableTableTableManager(_db.attachedDatabase, _db.topicsTable);
+  $$SubjectsTableTableTableManager get subjectsTable =>
+      $$SubjectsTableTableTableManager(_db.attachedDatabase, _db.subjectsTable);
 }

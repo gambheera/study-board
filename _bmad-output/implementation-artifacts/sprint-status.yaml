@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-15
-last_updated: 2026-05-03  # 3-3 review
+last_updated: 2026-05-11  # 4-3 review
 project: StudyBoard
 project_key: NOKEY
 tracking_system: file-system
@@ -68,14 +68,14 @@ development_status:
   epic-3: in-progress
   3-1-curiosity-first-warm-up-screen: done
   3-2-lesson-content-screen-and-rich-media: done
-  3-3-content-image-pre-fetch-and-background-sync: review
+  3-3-content-image-pre-fetch-and-background-sync: done
   epic-3-retrospective: optional
 
   # Epic 4: Quiz Engine, Completion Gate & Dopamine Loop
-  epic-4: backlog
-  4-1-quiz-screen-and-question-engine: backlog
-  4-2-quiz-pass-task-completion-gate-and-dopamine-moment: backlog
-  4-3-quiz-failure-pivot-question-and-recovery-path: backlog
+  epic-4: in-progress
+  4-1-quiz-screen-and-question-engine: done
+  4-2-quiz-pass-task-completion-gate-and-dopamine-moment: done
+  4-3-quiz-failure-pivot-question-and-recovery-path: review
   4-4-quiz-retry-flow-and-attempt-history: backlog
   epic-4-retrospective: optional
 

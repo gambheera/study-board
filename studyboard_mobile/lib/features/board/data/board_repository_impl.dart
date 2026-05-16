@@ -13,26 +13,27 @@ class BoardRepositoryImpl implements BoardRepository {
     String studentId,
     TaskStatus status,
   ) {
-    return _taskDao
-        .watchTasksByStatus(studentId, status)
-        .map(
-          (rows) => rows
-              .map(
-                (r) => BacklogItem(
-                  taskId: r.task.id,
-                  lessonId: r.task.lessonId,
-                  lessonTitle: r.lesson.title,
-                  topicId: r.lesson.topicId,
-                  topicTitle: r.topic.title,
-                  contentTrack: r.lesson.contentTrack,
-                  taskStatus: TaskStatusX.fromString(r.task.taskStatus),
-                  curiosityCompleted: r.task.curiosityCompleted,
-                  lessonOrderIndex: r.lesson.orderIndex,
-                  topicOrderIndex: r.topic.orderIndex,
-                ),
-              )
-              .toList(),
-        );
+    final rows = status == TaskStatus.inProgress
+        ? _taskDao.watchInProgressTasks(studentId)
+        : _taskDao.watchTasksByStatus(studentId, status);
+    return rows.map(
+      (rows) => rows
+          .map(
+            (r) => BacklogItem(
+              taskId: r.task.id,
+              lessonId: r.task.lessonId,
+              lessonTitle: r.lesson.title,
+              topicId: r.lesson.topicId,
+              topicTitle: r.topic.title,
+              contentTrack: r.lesson.contentTrack,
+              taskStatus: TaskStatusX.fromString(r.task.taskStatus),
+              curiosityCompleted: r.task.curiosityCompleted,
+              lessonOrderIndex: r.lesson.orderIndex,
+              topicOrderIndex: r.topic.orderIndex,
+            ),
+          )
+          .toList(),
+    );
   }
 
   @override
